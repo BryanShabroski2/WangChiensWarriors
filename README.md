@@ -88,12 +88,3 @@ By default, Flask will run on http://127.0.0.1:5000. You should see output like:
 3. Install Dependencies: If necessary, install Flask and Werkzeug via PyCharm’s interface or terminal.
 4. Run: Right-click on app.py -> Run 'app'. PyCharm will start the app on port 5000 by default.
 
-
-
-## Contact
-
-Author: 
-
-Email: 
-
-GitHub: 
