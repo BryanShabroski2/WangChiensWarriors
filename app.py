@@ -38,7 +38,7 @@ def login():
     else:
         return render_template('index.html', error='Invalid email or password.')
 
-@@app.route('/register', methods=['GET'])
+@app.route('/register', methods=['GET'])
 def register_form():
     return render_template('register.html')
 
