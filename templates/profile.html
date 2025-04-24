@@ -20,17 +20,6 @@
             <h2>{{ user.role|capitalize }} Profile</h2>
         </div>
         <div class="card-body">
-            {% if success %}
-                <div class="alert alert-success" role="alert">
-                    {{ success }}
-                </div>
-            {% endif %}
-
-            {% if error %}
-                <div class="alert alert-danger" role="alert">
-                    {{ error }}
-                </div>
-            {% endif %}
 
             <form action="{{ url_for('profile_update') }}" method="POST">
                 <!--Email field-->
@@ -65,25 +54,11 @@
                             <input type="text" name="business_name" id="business_name" class="form-control" value="{{ user_data.business_name }}" required>
                         </div>
                     </div>
-                    <div class="form-group row">
-                        <label class="col-md-4 col-form-label">Buyer Address ID:</label>
-                        <div class="col-md-8">
-                            <input type="text" class="form-control-plaintext" readonly value="{{ user_data.buyer_address_id }}">
-                            <small class="form-text text-muted">Address ID cannot be changed directly. Contact helpdesk for assistance.</small>
-                        </div>
-                    </div>
                 {% elif user.role == 'seller' %}
                     <div class="form-group row">
                         <label for="business_name" class="col-md-4 col-form-label">Business Name:</label>
                         <div class="col-md-8">
                             <input type="text" name="business_name" id="business_name" class="form-control" value="{{ user_data.business_name }}" required>
-                        </div>
-                    </div>
-                    <div class="form-group row">
-                        <label class="col-md-4 col-form-label">Business Address ID:</label>
-                        <div class="col-md-8">
-                            <input type="text" class="form-control-plaintext" readonly value="{{ user_data.Business_Address_ID }}">
-                            <small class="form-text text-muted">Address ID cannot be changed directly. Contact helpdesk for assistance.</small>
                         </div>
                     </div>
                     <div class="form-group row">
@@ -115,7 +90,7 @@
 
                 <div class="mt-4">
                     <button type="submit" class="btn btn-primary">Save Changes</button>
-                    <a href="{{ url_for('mainpage') }}" class="btn btn-secondary">Back to Dashboard</a>
+                    <a href="{{ url_for('mainpage') }}" class="btn btn-secondary">Back to Main Page</a>
                 </div>
             </form>
         </div>
@@ -146,11 +121,6 @@
                     <div class="form-group">
                         <label for="new_email">New Email Address:</label>
                         <input type="email" name="new_email" id="new_email" class="form-control" required>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="reason">Reason for Change:</label>
-                        <textarea name="reason" id="reason" class="form-control" rows="4" required></textarea>
                     </div>
                 </div>
                 <div class="modal-footer">
