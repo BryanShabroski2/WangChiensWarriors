@@ -3,8 +3,28 @@ import sqlite3
 from werkzeug.security import check_password_hash
 from werkzeug.security import generate_password_hash
 app = Flask(__name__)
-
+app.secret_key = 'dev'
 db_path = 'WCW.sqlite'
+
+def get_user_role(email):
+    connection = sqlite3.connect(db_path)
+    cursor = connection.cursor()
+
+    for table in ['buyers', 'sellers', 'helpdesk']:
+        cursor.execute(f"SELECT 1 FROM {table} WHERE email = ?", (email,))
+        if cursor.fetchone():
+            connection.close()
+            if table == 'buyers':
+                return 'buyer'
+            elif table == 'sellers':
+                return 'seller'
+            elif table == 'helpdesk':
+                return 'helpdesk'
+
+    connection.close()
+    return None  # fallback if role not found
+
+
 
 @app.route('/')
 def mainpage():
@@ -39,7 +59,13 @@ def login():
     hashed_password = result[0]
 
     if check_password_hash(hashed_password, password):
-        return redirect(url_for('success'))
+        role = get_user_role(email)
+        session['user'] = {
+            'email': email,
+            'role': role
+        }
+        return redirect(url_for('mainpage', success='Logged in successfully!'))
+
     else:
         return render_template('login.html', error='Invalid email or password.')
 
@@ -118,7 +144,10 @@ def register():
     #redirect to mainpage
     return redirect(url_for('mainpage'))
 
-
+@app.route('/logout')
+def logout():
+    session.pop('user', None)
+    return redirect(url_for('mainpage'))
 @app.route('/profile', methods=['GET'])
 def profile():
     if 'user' not in session:

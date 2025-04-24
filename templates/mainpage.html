@@ -36,8 +36,13 @@
 <!-- Top utility row (login / register) -->
 <div class="top‑utility bg-white border-bottom">
     <div class="container d-flex justify-content-end py-1">
-        <a href="{{ url_for('login_form') }}" class="mr-3 text-dark">Login</a>
-        <a href="{{ url_for('register_form') }}" class="btn btn-primary btn-sm btn-register">Register</a>
+       {% if session.user %}
+            <a href="{{ url_for('profile') }}" class="mr-3 text-dark">Profile</a>
+            <a href="{{ url_for('logout') }}" class="text-danger mr-3">Logout</a>
+        {% else %}
+            <a href="{{ url_for('login_form') }}" class="mr-3 text-dark">Login</a>
+            <a href="{{ url_for('register_form') }}" class="btn btn-primary btn-sm btn-register">Register</a>
+        {% endif %}
     </div>
 </div>
 
