@@ -7,14 +7,19 @@ app = Flask(__name__)
 db_path = 'WCW.sqlite'
 
 @app.route('/')
-def index():
-    return render_template('index.html')
+def mainpage():
+    # Old root directory, now we redirect to the main page
+    # return render_template('login.html')
+    return render_template('mainpage.html')
 
 @app.route('/success')
 def success():
     return render_template('success.html')
 
 
+@app.route('/login', methods=['GET'])
+def login_form():
+    return render_template('login.html')
 
 @app.route('/login', methods=['POST'])
 def login():
@@ -29,14 +34,14 @@ def login():
     connection.close()
 
     if result is None:
-        return render_template('index.html', error='Invalid email or password.')
+        return render_template('login.html', error='Invalid email or password.')
 
     hashed_password = result[0]
 
     if check_password_hash(hashed_password, password):
         return redirect(url_for('success'))
     else:
-        return render_template('index.html', error='Invalid email or password.')
+        return render_template('login.html', error='Invalid email or password.')
 
 @app.route('/register', methods=['GET'])
 def register_form():
@@ -117,7 +122,7 @@ def register():
 @app.route('/profile', methods=['GET'])
 def profile():
     if 'user' not in session:
-        return redirect(url_for('index'))
+        return redirect(url_for('mainpage'))
 
     # Get user data
     user_email = session['user']['email']
@@ -220,7 +225,7 @@ def profile_update():
 def email_change_request():
     #make sure user is logged in
     if 'user' not in session:
-        return redirect(url_for('index'))
+        return redirect(url_for('mainpage'))
 
     user_email = session['user']['email']
     new_email = request.form['new_email']
@@ -246,6 +251,12 @@ def email_change_request():
     connection.close()
 
     return redirect(url_for('profile', success='Email change request submitted and pending approval'))
+
+@app.route('/search')
+def search():
+    # Temporary placeholder – this can be replaced later
+    query = request.args.get('q', '')
+    return f"Search not implemented yet. You searched for: {query}"
 
 if __name__ == '__main__':
     app.run(debug=True)
