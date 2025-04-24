@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css"
+          integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <title>NittanyBusiness - Register</title>
+</head>
+<body>
+<div class="container-sm">
+    <div>
+        <h1>NittanyBusiness Registration</h1>
+        <p>Create your account as a buyer, seller, or helpdesk staff</p>
+    </div>
+    <div class="card-body">
+        {% if error %}
+            <div class="alert alert-danger" role="alert">
+                {{ error }}
+            </div>
+        {% endif %}
+        <form action="/register" method="POST">
+            <div class="form-group">
+                <label for="email">Email</label>
+                <input type="email" name="email" id="email" placeholder="Enter email" required class="form-control">
+            </div>
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" name="password" id="password" placeholder="Enter password" required class="form-control">
+            </div>
+            <div class="form-group">
+                <label for="confirm_password">Confirm Password</label>
+                <input type="password" name="confirm_password" id="confirm_password" placeholder="Confirm password" required class="form-control">
+            </div>
+            <div class="form-group">
+                <label for="role">Select Role</label>
+                <select name="role" id="role" class="form-control" required>
+                    <option value="">-- Select Role --</option>
+                    <option value="buyer">Buyer</option>
+                    <option value="seller">Seller</option>
+                    <option value="helpdesk">Helpdesk (Requires Approval)</option>
+                </select>
+            </div>
+
+            <!-- Buyer fields - hidden by default -->
+            <div id="buyer-fields" style="display: none;">
+                <div class="form-group">
+                    <label for="business_name">Business Name</label>
+                    <input type="text" name="business_name" id="business_name" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label for="buyer_address_id">Address ID</label>
+                    <input type="text" name="buyer_address_id" id="buyer_address_id" class="form-control">
+                </div>
+            </div>
+
+            <!-- Seller fields - hidden by default -->
+            <div id="seller-fields" style="display: none;">
+                <div class="form-group">
+                    <label for="business_name_seller">Business Name</label>
+                    <input type="text" name="business_name" id="business_name_seller" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label for="business_address_id">Business Address ID</label>
+                    <input type="text" name="business_address_id" id="business_address_id" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label for="bank_routing_number">Bank Routing Number</label>
+                    <input type="text" name="bank_routing_number" id="bank_routing_number" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label for="bank_account_number">Bank Account Number</label>
+                    <input type="text" name="bank_account_number" id="bank_account_number" class="form-control">
+                </div>
+            </div>
+
+            <!-- Helpdesk fields - hidden by default -->
+            <div id="helpdesk-fields" style="display: none;">
+                <div class="form-group">
+                    <label for="position">Position</label>
+                    <input type="text" name="position" id="position" class="form-control">
+                </div>
+                <div class="alert alert-warning">
+                    Note: Helpdesk accounts require administrator approval. Your account will be pending until approved.
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary">Register</button>
+            <a href="{{ url_for('index') }}" class="btn btn-secondary">Back to Login</a>
+        </form>
+    </div>
+</div>
+
+<script>
+    //This script allows us to toggle between what we want shown on the screen
+    //depending on which role they select
+$(document).ready(function() {
+    $('#role').change(function() {
+        const role = $(this).val();
+
+        $('#buyer-fields, #seller-fields, #helpdesk-fields').hide();
+
+        if (role === 'buyer') {
+            $('#buyer-fields').show();
+        } else if (role === 'seller') {
+            $('#seller-fields').show();
+        } else if (role === 'helpdesk') {
+            $('#helpdesk-fields').show();
+        }
+    });
+});
+</script>
+</body>
+</html>
