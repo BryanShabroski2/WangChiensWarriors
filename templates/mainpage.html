@@ -37,6 +37,9 @@
 <div class="top‑utility bg-white border-bottom">
     <div class="container d-flex justify-content-end py-1">
        {% if session.user %}
+           {% if session.user.role == 'helpdesk' %}
+                <a href="{{ url_for('helpdesk_dashboard') }}" class="btn btn-info btn-sm mr-3">Helpdesk Dashboard</a>
+            {% endif %}
             <a href="{{ url_for('profile') }}" class="mr-3 text-dark">Profile</a>
             <a href="{{ url_for('logout') }}" class="text-danger mr-3">Logout</a>
         {% else %}
