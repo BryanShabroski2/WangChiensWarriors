@@ -117,7 +117,11 @@
 
                    <!-- <img src="https://via.placeholder.com/300x200" class="card-img-top" alt="Product image"> -->
                     <div class="card-body p-2">
-                        <h6 class="card-title mb-5">{{ listing[0] }} - {{ listing[1] }}</h6>
+                        <h6 class="card-title mb-5">
+                            <a href="{{ url_for('listing_detail', listing_id=listing[3]) }}" class="text-dark">
+                                {{ listing[0] }} - {{ listing[1] }}
+                            </a>
+                        </h6>
                         <p class="mb-0 text-muted small">Seller: {{ listing[2] }}</p>
                         <p class="mb-0">Quantity: {{ listing[4] }}</p>
                         <p class="mb-0 text-danger font-weight-bold">{{ listing[5] }}</p>
