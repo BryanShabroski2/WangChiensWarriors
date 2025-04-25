@@ -24,13 +24,12 @@ def get_user_role(email):
     connection.close()
     return None  # fallback if role not found
 
-
-
 @app.route('/')
 def mainpage():
     # Old root directory, now we redirect to the main page
     # return render_template('login.html')
-    return render_template('mainpage.html')
+    user = session.get('user')
+    return render_template('mainpage.html', user=user)
 
 @app.route('/success')
 def success():
