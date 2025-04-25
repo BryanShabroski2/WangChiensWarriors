@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css"
+          integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js"></script>
+    <title>NittanyBusiness - HelpDesk Support</title>
+    <style>
+        .table th, .table td {
+            vertical-align: middle;
+        }
+        .completed {
+            background-color: #e8f5e9;
+        }
+        .pending {
+            background-color: #fff3e0;
+        }
+    </style>
+</head>
+<body>
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-12">
+            <h1>HelpDesk Support Dashboard</h1>
+            <p>Welcome, {{ user.email }}</p>
+            {% if success %}
+                <div class="alert alert-success" role="alert">
+                    {{ success }}
+                </div>
+            {% endif %}
+
+            {% if error %}
+                <div class="alert alert-danger" role="alert">
+                    {{ error }}
+                </div>
+            {% endif %}
+            <ul class="nav nav-tabs" id="requestTabs" role="tablist">
+                <li class="nav-item">
+                    <a class="nav-link active" id="unassigned-tab" data-toggle="tab" href="#unassigned" role="tab">Unassigned Requests</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" id="assigned-tab" data-toggle="tab" href="#assigned" role="tab">My Assigned Requests</a>
+                </li>
+            </ul>
+
+            <div class="tab-content mt-3" id="requestTabsContent">
+                <!--Unassigned Requests Tab-->
+                <div class="tab-pane fade show active" id="unassigned" role="tabpanel">
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead class="thead-dark">
+                                <tr>
+                                    <th>Request ID</th>
+                                    <th>Sender</th>
+                                    <th>Type</th>
+                                    <th>Description</th>
+                                    <th>Status</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for request in unassigned_requests %}
+                                <tr class="{{ 'completed' if request.request_status == 'COMPLETED' else 'pending' }}">
+                                    <td>{{ request.request_id }}</td>
+                                    <td>{{ request.sender_email }}</td>
+                                    <td>{{ request.request_type }}</td>
+                                    <td>{{ request.request_desc }}</td>
+                                    <td>{{ request.request_status }}</td>
+                                    <td>
+                                        <form action="{{ url_for('claim_request') }}" method="POST" class="d-inline">
+                                            <input type="hidden" name="request_id" value="{{ request.request_id }}">
+                                            <button type="submit" class="btn btn-primary btn-sm">Claim</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="6" class="text-center">No unassigned requests available.</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Assigned Requests Tab -->
+                <div class="tab-pane fade" id="assigned" role="tabpanel">
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead class="thead-dark">
+                                <tr>
+                                    <th>Request ID</th>
+                                    <th>Sender</th>
+                                    <th>Type</th>
+                                    <th>Description</th>
+                                    <th>Status</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for request in assigned_requests %}
+                                <tr class="{{ 'completed' if request.request_status == 'COMPLETED' else 'pending' }}">
+                                    <td>{{ request.request_id }}</td>
+                                    <td>{{ request.sender_email }}</td>
+                                    <td>{{ request.request_type }}</td>
+                                    <td>{{ request.request_desc }}</td>
+                                    <td>{{ request.request_status }}</td>
+                                    <td>
+                                        {% if request.request_type == 'AddCategory' and request.request_status != 'COMPLETED' %}
+                                            <button type="button" class="btn btn-success btn-sm" data-toggle="modal" data-target="#addCategoryModal" data-requestid="{{ request.request_id }}">
+                                                Process
+                                            </button>
+                                        {% elif request.request_status != 'COMPLETED' %}
+                                            <form action="{{ url_for('complete_request') }}" method="POST" class="d-inline">
+                                                <input type="hidden" name="request_id" value="{{ request.request_id }}">
+                                                <button type="submit" class="btn btn-success btn-sm">Complete</button>
+                                            </form>
+                                        {% else %}
+                                            <span class="badge badge-success">Completed</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="6" class="text-center">No assigned requests available.</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-3">
+                <a href="{{ url_for('mainpage') }}" class="btn btn-secondary">Back to Main Page</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!--Add Category Modal-->
+<div class="modal fade" id="addCategoryModal" tabindex="-1" role="dialog" aria-labelledby="addCategoryModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addCategoryModalLabel">Add New Category</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <form action="{{ url_for('add_category') }}" method="POST">
+                <div class="modal-body">
+                    <input type="hidden" name="request_id" id="modal_request_id">
+
+                    <div class="form-group">
+                        <label for="parent_category">Parent Category:</label>
+                        <select name="parent_category" id="parent_category" class="form-control" required>
+                            <option value="">-- Select Parent Category --</option>
+                            {% for category in parent_categories %}
+                                <option value="{{ category }}">{{ category }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="category_name">New Category Name:</label>
+                        <input type="text" name="category_name" id="category_name" class="form-control" required>
+                    </div>
+
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="is_parent" name="is_parent">
+                        <label class="form-check-label" for="is_parent">
+                            Is this a new parent category?
+                        </label>
+                    </div>
+
+                    <div id="new_parent_container" style="display: none;">
+                        <div class="form-group">
+                            <label for="new_parent_name">New Parent Category Name:</label>
+                            <input type="text" name="new_parent_name" id="new_parent_name" class="form-control">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-success">Add Category & Complete Request</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    $(document).ready(function() {
+        //Pass request to id modal
+        $('#addCategoryModal').on('show.bs.modal', function (event) {
+            var button = $(event.relatedTarget);
+            var requestId = button.data('requestid');
+            var modal = $(this);
+            modal.find('#modal_request_id').val(requestId);
+        });
+
+        //Toggle parent
+        $('#is_parent').change(function() {
+            if(this.checked) {
+                $('#new_parent_container').show();
+                $('#parent_category').prop('required', false);
+                $('#parent_category').prop('disabled', true);
+            } else {
+                $('#new_parent_container').hide();
+                $('#parent_category').prop('required', true);
+                $('#parent_category').prop('disabled', false);
+            }
+        });
+    });
+</script>
+</body>
+</html>

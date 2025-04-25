@@ -286,5 +286,160 @@ def search():
     query = request.args.get('q', '')
     return f"Search not implemented yet. You searched for: {query}"
 
+
+#Helpdesk dashboard accessible by helpdesk staff
+@app.route('/helpdesk')
+def helpdesk_dashboard():
+    #Make sure user in session is helpdesk
+    if 'user' not in session or session['user']['role'] != 'helpdesk':
+        return redirect(url_for('mainpage'))
+
+    #Access unassigned requests by name
+    connection = sqlite3.connect(db_path)
+    connection.row_factory = sqlite3.Row
+    cursor = connection.cursor()
+
+    #Gather unassigned requests
+    cursor.execute('''
+        SELECT * FROM requests
+        WHERE (helpdesk_staff_email IS NULL OR helpdesk_staff_email = 'helpdeskteam@nittybiz.com')
+        AND request_status != 'COMPLETED'
+        ORDER BY request_id
+    ''')
+    unassigned_requests = cursor.fetchall()
+
+    #Get requests assigned to the current user
+    cursor.execute('''
+        SELECT * FROM requests
+        WHERE helpdesk_staff_email = ?
+        ORDER BY request_status, request_id
+    ''', (session['user']['email'],))
+    assigned_requests = cursor.fetchall()
+
+    #Get parent categories for drop down
+    cursor.execute('''
+        SELECT DISTINCT parent_category FROM categories
+        WHERE parent_category IS NOT NULL
+        ORDER BY parent_category
+    ''')
+    parent_categories = [row[0] for row in cursor.fetchall()]
+
+    connection.close()
+
+
+    return render_template('helpdesk.html',user=session['user'],unassigned_requests=unassigned_requests,assigned_requests=assigned_requests,parent_categories=parent_categories)
+
+
+
+@app.route('/helpdesk/claim', methods=['POST'])
+def claim_request():
+    #make sure user in session
+    if 'user' not in session or session['user']['role'] != 'helpdesk':
+        return redirect(url_for('mainpage'))
+
+    #Get request id
+    request_id = request.form['request_id']
+
+    #Connect
+    connection = sqlite3.connect(db_path)
+    cursor = connection.cursor()
+
+    #Update requests to be claimed by helpdesk
+    cursor.execute('''
+            UPDATE requests
+            SET helpdesk_staff_email = ?
+            WHERE request_id = ?
+            AND request_status = '0'
+        ''', (session['user']['email'], request_id))
+
+    #close
+    connection.commit()
+    connection.close()
+
+    #redirect
+    return redirect(url_for('helpdesk', success=f'Request {request_id} has been assigned to you.'))
+
+
+
+@app.route('/helpdesk/complete', methods=['POST'])
+def complete_request():
+    #make sure in session
+    if 'user' not in session or session['user']['role'] != 'helpdesk':
+        return redirect(url_for('mainpage'))
+
+    #get request id
+    request_id = request.form['request_id']
+
+    #connect
+    connection = sqlite3.connect(db_path)
+    cursor = connection.cursor()
+
+    #Mark as completed
+    cursor.execute('''
+        UPDATE requests
+        SET request_status = '1'
+        WHERE request_id = ? AND helpdesk_staff_email = ?
+    ''', (request_id, session['user']['email']))
+
+    #Close
+    connection.commit()
+    connection.close()
+
+    return redirect(url_for('helpdesk', success=f'Request {request_id} has been marked as completed.'))
+
+
+@app.route('/helpdesk/add_category', methods=['POST'])
+def add_category():
+    #make sure in sessioon
+    if 'user' not in session or session['user']['role'] != 'helpdesk':
+        return redirect(url_for('mainpage'))
+
+    #get id, category, and figure out if is parent (checkbox) all from form
+    request_id = request.form['request_id']
+    category_name = request.form['category_name']
+    is_parent = 'is_parent' in request.form
+
+    connection = sqlite3.connect(db_path)
+    cursor = connection.cursor()
+
+    #Category creation
+    if is_parent:
+        new_parent_name = request.form['new_parent_name']
+
+        cursor.execute('''
+            INSERT INTO categories (parent_category, category_name)
+            VALUES (?, ?)
+        ''', ('Root', new_parent_name))
+
+        if category_name:
+            cursor.execute('''
+                INSERT INTO categories (parent_category, category_name)
+                VALUES (?, ?)
+            ''', (new_parent_name, category_name))
+    else:
+        parent_category = request.form['parent_category']
+
+        cursor.execute('''
+            INSERT INTO categories (parent_category, category_name)
+            VALUES (?, ?)
+        ''', (parent_category, category_name))
+
+    #Complete request
+    cursor.execute('''
+        UPDATE requests
+        SET request_status = '1'
+        WHERE request_id = ? AND helpdesk_staff_email = ?
+    ''', (request_id, session['user']['email']))
+
+    #commit and close
+    connection.commit()
+    connection.close()
+
+    return redirect(url_for('helpdesk', success=f'Category "{category_name}" has been added and request {request_id} has been completed.'))
+
+
+
 if __name__ == '__main__':
     app.run(debug=True)
+
+
