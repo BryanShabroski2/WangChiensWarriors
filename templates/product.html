@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Product #{{ p.Listing_ID }}</title>
+  <style>
+    body { font-family: sans-serif; margin: 2rem; }
+    h2 { margin-top: 1.5rem; }
+    .section { border: 1px solid #ccc; padding: 1rem; margin-top: 1rem; }
+    .section th { text-align: left; width: 200px; background: #f0f0f0; }
+    .section td { padding-left: 0.5rem; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #ddd; padding: 0.5rem; }
+    .cart { margin-top: 1.5rem; }
+    .cart label { margin-right: 0.5rem; }
+    .cart select { margin-right: 1rem; }
+  </style>
+</head>
+<body>
+  <h1>{{ p.Product_Title }}</h1>
+
+  <!-- Section 1: Product Information -->
+  <h2>Product Information</h2>
+  <div class="section">
+    <table>
+      <tr><th>Listing ID</th>      <td>{{ p.Listing_ID }}</td></tr>
+      <tr><th>Title</th>           <td>{{ p.Product_Title }}</td></tr>
+      <tr><th>Name</th>            <td>{{ p.Product_Name }}</td></tr>
+      <tr><th>Description</th>     <td>{{ p.Product_Description }}</td></tr>
+      <tr><th>Category</th>        <td>{{ p.Category }}</td></tr>
+      <tr><th>Price</th>           <td>${{ "%.2f"|format(p.Product_Price) }}</td></tr>
+      <tr><th>Quantity in Stock</th><td>{{ p.Quantity }}</td></tr>
+      <tr><th>Status</th>          <td>{{ p.Status }}</td></tr>
+    </table>
+  </div>
+
+  <!-- Section 2: Seller & Address -->
+  <h2>Seller & Address</h2>
+  <div class="section">
+    <table>
+      <tr>
+        <th>Business Name</th>
+        <td>{{ p.business_name }}</td>
+      </tr>
+      <tr>
+        <th>Seller Email</th>
+        <td>{{ p.Seller_Email }}</td>
+      </tr>
+      <tr>
+        <th>Address</th>
+        <td>
+          {{ p.street_num }}, {{ p.street_name }}<br>
+          {{ p.city }}, {{ p.state }}, {{ p.zipcode }}
+        </td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- Purchase controls -->
+  <div class="cart">
+    <label for="purchase_qty">Quantity to buy:</label>
+    <select id="purchase_qty" name="purchase_qty">
+      {% for i in range(1, (p.Quantity or 1) + 1) %}
+        <option value="{{ i }}">{{ i }}</option>
+      {% endfor %}
+    </select>
+    <button type="button">Add to Cart</button>
+  </div>
+
+  <p style="margin-top:2rem;">
+    <a href="{{ url_for('search',
+          keywords=request.args.get('keywords',''),
+          min_price=request.args.get('min_price',''),
+          max_price=request.args.get('max_price','')) }}">
+      ← Back to search
+    </a>
+  </p>
+</body>
+</html>

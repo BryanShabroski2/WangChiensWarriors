@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Product Search</title>
+  <style>
+    body{font-family:sans-serif;margin:2rem}
+    form input{margin-right:.5rem}
+    table{border-collapse:collapse;width:100%;margin-top:1rem}
+    th,td{border:1px solid #ccc;padding:.4rem;text-align:left}
+  </style>
+</head>
+<body>
+  <h1>Product Search</h1>
+  <form method="get" action="{{ url_for('search') }}">
+    <input name="keywords"  placeholder="Keywords"   value="{{ keywords }}">
+    <input name="min_price" type="number" step="0.01" placeholder="Min Price" value="{{ min_price }}">
+    <input name="max_price" type="number" step="0.01" placeholder="Max Price" value="{{ max_price }}">
+    <button type="submit">Search</button>
+  </form>
+
+  {% if results %}
+    <h2>{{ results|length }} result(s)</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th><th>Title</th><th>Description</th>
+          <th>Category</th><th>Price</th><th>Qty</th><th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in results %}
+        <tr>
+          <td>
+            <a href="{{ url_for('product_detail', listing_id=p.Listing_ID) }}">
+              {{ p.Listing_ID }}
+            </a>
+          </td>
+          <td>
+            <a href="{{ url_for('product_detail', listing_id=p.Listing_ID) }}">
+              {{ p.Product_Title }}
+            </a>
+          </td>
+          <td>{{ p.Product_Description }}</td>
+          <td>{{ p.Category }}</td>
+          <td>${{ "%.2f"|format(p.Product_Price) }}</td>
+          <td>{{ p.Quantity }}</td>
+          <td>{{ p.Availability }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% elif keywords or min_price or max_price %}
+    <p>No matching products found.</p>
+  {% endif %}
+</body>
+</html>
