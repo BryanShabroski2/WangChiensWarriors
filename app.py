@@ -27,10 +27,45 @@ def get_user_role(email):
 
 
 @app.route('/')
-def mainpage():
+@app.route('/page/<int:page>')
+def mainpage(page=1):
     # Old root directory, now we redirect to the main page
     # return render_template('login.html')
-    return render_template('mainpage.html')
+    PAGE_SIZE = 60
+
+    connection = sqlite3.connect(db_path)
+    cursor = connection.cursor()
+    cursor.execute('''
+        SELECT count(*) FROM product_listings
+        WHERE Status = 1; 
+        ''')
+    total_listings = cursor.fetchone()[0]
+    total_pages = (total_listings + PAGE_SIZE - 1) // PAGE_SIZE
+
+    if page > total_pages:
+        page = total_pages
+    elif page < 1:
+        page = 1
+
+    offset = (page - 1) * PAGE_SIZE
+
+    cursor.execute('''
+       SELECT 
+        p.Product_Title, 
+        p.Product_Name, 
+        s.Business_Name,
+        p.Listing_ID, 
+        p.Quantity, 
+        p.Product_Price
+        FROM product_listings p, sellers s
+        WHERE p.Status = 1 
+        AND p.Seller_Email = s.email
+        ORDER BY p.Listing_ID
+        LIMIT ? OFFSET ?;
+    ''', (PAGE_SIZE, offset))
+    listings = cursor.fetchall()
+
+    return render_template('mainpage.html', listings=listings, page=page, total_pages=total_pages)
 
 @app.route('/success')
 def success():

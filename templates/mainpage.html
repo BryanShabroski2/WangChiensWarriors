@@ -85,18 +85,47 @@
 
     <!-- Placeholder grid iterate from DB later -->
     <div class="row">
-        {% for i in range(8) %}
-            <div class="col-6 col-md-3 mb-4">
+        {% for listing in listings %}
+            <div class="col-6 col-md-3 mb-5">
                 <div class="card h-100 product-card">
-                    <img src="https://via.placeholder.com/300x200" class="card-img-top" alt="Product image">
+
+                   <!-- <img src="https://via.placeholder.com/300x200" class="card-img-top" alt="Product image"> -->
                     <div class="card-body p-2">
-                        <h6 class="card-title mb-1 text-truncate">Sample Product {{ i+1 }}</h6>
-                        <p class="mb-0 text-danger font-weight-bold">$99.99</p>
+                        <h6 class="card-title mb-5">{{ listing[0] }} - {{ listing[1] }}</h6>
+                        <p class="mb-0 text-muted small">Seller: {{ listing[2] }}</p>
+                        <p class="mb-0">Quantity: {{ listing[4] }}</p>
+                        <p class="mb-0 text-danger font-weight-bold">{{ listing[5] }}</p>
                     </div>
                 </div>
             </div>
         {% endfor %}
     </div>
+
+
+    <!-- Pagination -->
+    <nav aria-label="Page navigation">
+    <ul class="pagination justify-content-center">
+
+        {# Previous button #}
+        <li class="page-item {% if page <= 1 %}disabled{% endif %}">
+            <a class="page-link" href="{{ url_for('mainpage', page=page-1) }}" tabindex="-1">Previous</a>
+        </li>
+
+        {# Numbered pages #}
+        {% for p in range(1, total_pages + 1) %}
+            <li class="page-item {% if p == page %}active{% endif %}">
+                <a class="page-link" href="{{ url_for('mainpage', page=p) }}">{{ p }}</a>
+            </li>
+        {% endfor %}
+
+        {# Next button #}
+        <li class="page-item {% if page >= total_pages %}disabled{% endif %}">
+            <a class="page-link" href="{{ url_for('mainpage', page=page+1) }}">Next</a>
+        </li>
+
+    </ul>
+</nav>
+
 </main>
 
 <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
