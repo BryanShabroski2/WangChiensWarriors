@@ -64,10 +64,9 @@ def mainpage(page=1):
         LIMIT ? OFFSET ?;
     ''', (PAGE_SIZE, offset))
     listings = cursor.fetchall()
-
-    return render_template('mainpage.html', listings=listings, page=page, total_pages=total_pages)
     user = session.get('user')
-    return render_template('mainpage.html', user=user)
+
+    return render_template('mainpage.html', listings=listings, page=page, total_pages=total_pages, user=user)
 
 @app.route('/listing/<int:listing_id>', methods=['GET'])
 def listing_detail(listing_id):
