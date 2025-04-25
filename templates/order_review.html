@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Order Review</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css">
+</head>
+<body class="bg-light">
+    <div class="container mt-5">
+        <h2>Order Review</h2>
+        <p><strong>Product:</strong> {{ product.title }}</p>
+        <p><strong>Description:</strong> {{ product.description }}</p>
+        <p><strong>Unit Price:</strong> {{ product.price }}</p>
+        <p><strong>Available Quantity:</strong> {{ product.available }}</p>
+        <form action="{{ url_for('place_order') }}" method="POST">
+            <input type="hidden" name="listing_id" value="{{ product.listing_id }}">
+            <input type="hidden" name="seller_email" value="{{ product.seller_email }}">
+            <div class="form-group">
+                <label for="quantity">Quantity to Buy</label>
+                <input type="number" name="quantity" class="form-control" min="1" max="{{ product.available }}" required>
+            </div>
+            <div class="form-group">
+                <label for="card">Select Card</label>
+                <select name="card" class="form-control" required>
+                    {% for card in cards %}
+                        <option value="{{ card[0] }}">{{ card[1] }} - Ending in {{ card[0][-4:] }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button type="submit" class="btn btn-success">Place Order</button>
+            <a href="{{ url_for('mainpage') }}" class="btn btn-secondary">Back to Main Page</a>
+        </form>
+    </div>
+</body>
+</html>
