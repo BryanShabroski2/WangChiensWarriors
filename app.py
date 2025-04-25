@@ -2,6 +2,8 @@ from flask import Flask, render_template, request, redirect, url_for, session, f
 import sqlite3
 from werkzeug.security import check_password_hash
 from werkzeug.security import generate_password_hash
+import datetime
+import random
 app = Flask(__name__)
 app.secret_key = 'dev'
 db_path = 'WCW.sqlite'
@@ -23,8 +25,6 @@ def get_user_role(email):
 
     connection.close()
     return None  # fallback if role not found
-
-
 
 @app.route('/')
 @app.route('/page/<int:page>')
@@ -66,11 +66,142 @@ def mainpage(page=1):
     listings = cursor.fetchall()
 
     return render_template('mainpage.html', listings=listings, page=page, total_pages=total_pages)
+    user = session.get('user')
+    return render_template('mainpage.html', user=user)
+
+@app.route('/listing/<int:listing_id>', methods=['GET'])
+def listing_detail(listing_id):
+    connection = sqlite3.connect(db_path)
+    cursor = connection.cursor()
+
+    # product + seller info to be displayed on the page
+    cursor.execute('''
+        SELECT pl.Product_Title, pl.Product_Description, pl.Product_Price, pl.Quantity, s.business_name
+        FROM product_listings pl
+        JOIN sellers s ON pl.Seller_Email = s.email
+        WHERE pl.Listing_ID = ?
+    ''', (listing_id,))
+
+    result = cursor.fetchone()
+    connection.close()
+
+    if result:
+        product = {
+            'title': result[0],
+            'description': result[1],
+            'price': result[2],
+            'quantity': result[3],
+            'seller_name': result[4],
+            'listing_id': listing_id
+        }
+        return render_template('listing.html', product=product)
+    else:
+        return "Product not found", 404
+
+@app.route('/order_review/<int:listing_id>', methods=['GET', 'POST'])
+def order_review(listing_id):
+    # user should be a logged-in buyer before being able to buy a product
+    if 'user' not in session or session['user']['role'] != 'buyer':
+        return redirect(url_for('login_form'))
+
+    user_email = session['user']['email']
+    connection = sqlite3.connect(db_path)
+    cursor = connection.cursor()
+
+    # product + seller info to be displayed on the page
+    cursor.execute('''
+        SELECT pl.Product_Title, pl.Product_Description, pl.Product_Price, pl.Quantity, pl.Seller_Email, s.business_name
+        FROM product_listings pl
+        JOIN sellers s ON pl.Seller_Email = s.email
+        WHERE pl.Listing_ID = ?
+    ''', (listing_id,))
+    product = cursor.fetchone()
+
+    if not product:
+        connection.close()
+        return "Product not found", 404
+
+    # gets all credit cards for saved info
+    cursor.execute('''SELECT credit_card_num, card_type FROM credit_cards WHERE Owner_email = ?''', (user_email,))
+    cards = cursor.fetchall()
+    connection.close()
+
+    product_data = {
+        'title': product[0],
+        'description': product[1],
+        'price': product[2],
+        'available': product[3],
+        'seller_email': product[4],
+        'seller_name': product[5],
+        'listing_id': listing_id
+    }
+
+    return render_template('order_review.html', product=product_data, cards=cards)
+
+
+def generate_unique_order_id(cursor):
+    while True:
+        order_id = random.randint(100, 999999)  # 3 to 6-digit number
+        cursor.execute('SELECT 1 FROM orders WHERE Order_ID = ?', (order_id,))
+        if not cursor.fetchone():
+            return order_id
+
+@app.route('/place_order', methods=['POST'])
+def place_order():
+    if 'user' not in session or session['user']['role'] != 'buyer':
+        return redirect(url_for('login_form'))
+
+    buyer_email = session['user']['email']
+    listing_id = request.form['listing_id']
+    quantity = int(request.form['quantity'])
+    card = request.form['card']
+    seller_email = request.form['seller_email']
+
+    connection = sqlite3.connect(db_path)
+    cursor = connection.cursor()
+
+    order_id = generate_unique_order_id(cursor)
+    now = datetime.datetime.now()
+    date_str = f"{now.year}/{now.month}/{now.day}"
+
+    cursor.execute('SELECT Product_Price, Quantity FROM product_listings WHERE Listing_ID = ?', (listing_id,))
+    product = cursor.fetchone()
+
+    if not product or quantity > product[1]:
+        connection.close()
+        return "Invalid quantity", 400
+
+    price_string = str(product[0]).replace('$', '').strip()
+    price = float(price_string)
+    total_payment = round(price * quantity, 2)
+    new_quantity = product[1] - quantity
+
+    # adds a new order to the table
+    cursor.execute('''
+        INSERT INTO orders (Order_ID, Seller_Email, Listing_ID, Buyer_Email, Date, Quantity, Payment)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    ''', (order_id, seller_email, listing_id, buyer_email, date_str, quantity, total_payment))
+
+    # if the new quantity is 0, set the status to be 2. otherwise, status is unchanged
+    cursor.execute('''
+        UPDATE product_listings
+        SET Quantity = ?, Status = CASE WHEN ? = 0 THEN 2 ELSE Status END
+        WHERE Listing_ID = ?
+    ''', (new_quantity, new_quantity, listing_id))
+
+    # update seller balance depending on the order
+    cursor.execute('''
+        UPDATE sellers SET balance = balance + ? WHERE email = ?
+    ''', (total_payment, seller_email))
+
+    connection.commit()
+    connection.close()
+
+    return redirect(url_for('mainpage'))
 
 @app.route('/success')
 def success():
     return render_template('success.html')
-
 
 @app.route('/login', methods=['GET'])
 def login_form():

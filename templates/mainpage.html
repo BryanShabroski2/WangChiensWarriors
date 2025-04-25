@@ -81,6 +81,32 @@
 
 <!-- Main product section -->
 <main class="container my-4">
+
+    {% if user %}
+        <div class="alert alert-info">
+            <h4>Welcome, {{ user.email }}!</h4>
+        </div>
+
+        {% if user.role == 'buyer' %}
+            <div class="mb-4">
+                <a href="{{ url_for('profile') }}" class="btn btn-outline-primary">View Personal Info</a>
+                <a href="#" class="btn btn-outline-success">Shopping Cart</a>
+            </div>
+        {% elif user.role == 'seller' %}
+            <div class="mb-4">
+                <a href="{{ url_for('profile') }}" class="btn btn-outline-primary">View Personal Info</a>
+                <a href="#" class="btn btn-outline-success">Published Products</a>
+                <a href="#" class="btn btn-outline-secondary">Edit Product Details</a>
+                <a href="#" class="btn btn-outline-info">View Buyer Feedback</a>
+            </div>
+        {% elif user.role == 'helpdesk' %}
+            <div class="mb-4">
+                <a href="{{ url_for('profile') }}" class="btn btn-outline-primary">View Personal Info</a>
+                <a href="#" class="btn btn-outline-dark">Helpdesk Portal</a>
+            </div>
+        {% endif %}
+    {% endif %}
+
     <h3 class="mb-3">All Items</h3>
 
     <!-- Placeholder grid iterate from DB later -->
