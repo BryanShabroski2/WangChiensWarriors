@@ -1,5 +1,3 @@
-from multiprocessing.forkserver import connect_to_new_process
-
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 import sqlite3
 from werkzeug.security import check_password_hash
@@ -126,7 +124,8 @@ def mainpage(category="All", subcategory="", subsubcategory=""):
             s.Business_Name,
             p.Listing_ID, 
             p.Quantity, 
-            p.Product_Price
+            p.Product_Price,
+            p.Seller_Email
         FROM product_listings p, sellers s, categories c
         WHERE p.Status = 1 
           AND p.Seller_Email = s.email
@@ -151,6 +150,8 @@ def mainpage(category="All", subcategory="", subsubcategory=""):
         filters.append('p.Category IN (' + ','.join(['?'] * len(all_descendants)) + ')')
         params.extend(all_descendants)
         parent_category = category
+    else:
+        parent_category = "Root"
 
     if filters:
         count_query += ' AND ' + ' AND '.join(filters)
@@ -178,17 +179,12 @@ def mainpage(category="All", subcategory="", subsubcategory=""):
     listings = cursor.fetchall()
 
     # For category listing on the navbar
-    categories = []
-    if category == 'All':
-        cursor.execute('SELECT category_name FROM categories WHERE parent_category = "Root";')
-        categories = cursor.fetchall()
-    else:
-        cursor.execute('''
-            SELECT category_name
-            FROM categories
-            WHERE parent_category = ?
-        ''', (parent_category,))
-        categories = cursor.fetchall()
+    cursor.execute('''
+        SELECT category_name
+        FROM categories
+        WHERE parent_category = ?
+    ''', (parent_category,))
+    categories = cursor.fetchall()
 
     enhanced_listings = []
     for listing in listings:
@@ -197,9 +193,8 @@ def mainpage(category="All", subcategory="", subsubcategory=""):
         enhanced_listings.append(
             (product_title, product_name, business_name, listing_id, quantity, price, seller_email, seller_rating))
 
-    return render_template('mainpage.html', listings=listings, page=page, total_pages=total_pages, user=user)
     return render_template('mainpage.html',
-                           listings=enchanced_listings,
+                           listings=enhanced_listings,
                            categories=categories,
                            category=category,
                            subcategory=subcategory,
@@ -208,7 +203,6 @@ def mainpage(category="All", subcategory="", subsubcategory=""):
                            total_pages=total_pages,
                            user=user
                            )
-
 
 @app.route('/listing/<int:listing_id>', methods=['GET'])
 def listing_detail(listing_id):
