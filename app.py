@@ -1025,8 +1025,12 @@ def search():
     wheres, params = ["p.Status = 1"], []
     for w in q.split():
         like = f'%{w}%'
-        wheres.append('(p.Product_Title LIKE ? OR p.Product_Description LIKE ? OR p.Category LIKE ?)')
-        params.extend([like]*3)
+        wheres.append('('
+                      'p.Product_Title LIKE ? OR '
+                      'p.Product_Description LIKE ? OR '
+                      'p.Category LIKE ? OR '
+                      's.Business_Name LIKE ?)')
+        params.extend([like]*4)
     if min_p is not None:
         wheres.append('p.Product_Price >= ?'); params.append(min_p)
     if max_p is not None:
@@ -1037,6 +1041,7 @@ def search():
     with _open() as c:
         total = c.execute(f'''
             SELECT COUNT(*) FROM product_listings p
+            JOIN sellers s ON p.Seller_Email = s.email 
             WHERE {where_sql}''', params).fetchone()[0]
 
         total_pages = max((total + PAGE_SIZE - 1)//PAGE_SIZE, 1)
