@@ -53,6 +53,24 @@ def get_user_business_name(email, role):
     connection.close()
     return None  # fallback if role is unknown
 
+def get_seller_rating(seller_email):
+    connection = sqlite3.connect(db_path)
+    cursor = connection.cursor()
+
+    cursor.execute('''
+        SELECT AVG(Rate)
+        FROM reviews
+        JOIN orders ON reviews.Order_ID = orders.Order_ID
+        WHERE orders.Seller_Email = ?
+    ''', (seller_email,))
+    result = cursor.fetchone()
+    connection.close()
+
+    if result and result[0]:
+        return round(result[0], 2)
+    else:
+        return None
+
 @app.route('/')
 @app.route('/page/<int:page>')
 def mainpage(page=1):
@@ -83,7 +101,8 @@ def mainpage(page=1):
         s.Business_Name,
         p.Listing_ID, 
         p.Quantity, 
-        p.Product_Price
+        p.Product_Price,
+        p.Seller_Email
         FROM product_listings p, sellers s
         WHERE p.Status = 1 
         AND p.Seller_Email = s.email
@@ -91,9 +110,17 @@ def mainpage(page=1):
         LIMIT ? OFFSET ?;
     ''', (PAGE_SIZE, offset))
     listings = cursor.fetchall()
+
+    enhanced_listings = []
+    for listing in listings:
+        product_title, product_name, business_name, listing_id, quantity, price, seller_email = listing
+        seller_rating = get_seller_rating(seller_email)
+        enhanced_listings.append(
+            (product_title, product_name, business_name, listing_id, quantity, price, seller_email, seller_rating))
+
     user = session.get('user')
 
-    return render_template('mainpage.html', listings=listings, page=page, total_pages=total_pages, user=user)
+    return render_template('mainpage.html', listings=enhanced_listings, page=page, total_pages=total_pages, user=user)
 
 @app.route('/listing/<int:listing_id>', methods=['GET'])
 def listing_detail(listing_id):
@@ -102,7 +129,7 @@ def listing_detail(listing_id):
 
     # product + seller info to be displayed on the page
     cursor.execute('''
-        SELECT pl.Product_Title, pl.Product_Description, pl.Product_Price, pl.Quantity, s.business_name
+        SELECT pl.Product_Title, pl.Product_Name, pl.Product_Description, pl.Product_Price, pl.Quantity, s.business_name, s.email
         FROM product_listings pl
         JOIN sellers s ON pl.Seller_Email = s.email
         WHERE pl.Listing_ID = ?
@@ -114,15 +141,54 @@ def listing_detail(listing_id):
     if result:
         product = {
             'title': result[0],
-            'description': result[1],
-            'price': result[2],
-            'quantity': result[3],
-            'seller_name': result[4],
+            'name': result[1],
+            'description': result[2],
+            'price': result[3],
+            'quantity': result[4],
+            'seller_name': result[5],
+            'seller_email': result[6],
             'listing_id': listing_id
         }
-        return render_template('listing.html', product=product)
+        seller_rating = get_seller_rating(result[6])
+        return render_template('listing.html', product=product, seller_rating=seller_rating)
+
     else:
         return "Product not found", 404
+
+
+@app.route('/seller/<seller_name>')
+def seller_detail(seller_name):
+    connection = sqlite3.connect(db_path)
+    cursor = connection.cursor()
+
+    cursor.execute('''
+        SELECT business_name, email
+        FROM sellers
+        WHERE business_name = ?
+    ''', (seller_name,))
+    seller = cursor.fetchone()
+
+    if not seller:
+        connection.close()
+        return "Seller not found", 404
+    seller_rating = get_seller_rating(seller[1])
+
+    cursor.execute('''
+        SELECT r.Rate, r.Review_Desc
+        FROM reviews r
+        JOIN orders o ON r.Order_ID = o.Order_ID
+        WHERE o.Seller_Email = (
+            SELECT email
+            FROM sellers
+            WHERE business_name = ?
+        )
+    ''', (seller_name,))
+    reviews = cursor.fetchall()
+
+    connection.close()
+
+    return render_template('seller.html', seller=seller, reviews=reviews, seller_rating=seller_rating)
+
 
 @app.route('/order_review/<int:listing_id>', methods=['GET', 'POST'])
 def order_review(listing_id):

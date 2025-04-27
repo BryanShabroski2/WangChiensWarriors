@@ -123,15 +123,14 @@
         {% for listing in listings %}
             <div class="col-6 col-md-3 mb-5">
                 <div class="card h-100 product-card">
-
-                   <!-- <img src="https://via.placeholder.com/300x200" class="card-img-top" alt="Product image"> -->
                     <div class="card-body p-2">
                         <h6 class="card-title mb-5">
                             <a href="{{ url_for('listing_detail', listing_id=listing[3]) }}" class="text-dark">
                                 {{ listing[0] }} - {{ listing[1] }}
                             </a>
                         </h6>
-                        <p class="mb-0 text-muted small">Seller: {{ listing[2] }}</p>
+                        <a href="{{ url_for('seller_detail', seller_name=listing[2]) }}" class="text-secondary"> Seller: {{ listing[2] }}</a>
+                        <p>(Rating: {{ listing[7] if listing[7] is not none else 'N/A' }})</p>
                         <p class="mb-0">Quantity: {{ listing[4] }}</p>
                         <p class="mb-0 text-danger font-weight-bold">{{ listing[5] }}</p>
                     </div>
