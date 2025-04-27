@@ -26,6 +26,29 @@ def get_user_role(email):
     connection.close()
     return None  # fallback if role not found
 
+def get_children_categories(cursor, parent_category):
+    cursor.execute('''
+            SELECT category_name FROM categories
+            WHERE parent_category = ?
+        ''', (parent_category,))
+    children = [row[0] for row in cursor.fetchall()]
+    return children
+
+def dfs_category(start_category):
+    result = []
+    connection = sqlite3.connect(db_path)
+    cursor = connection.cursor()
+    def dfs(current_category):
+        result.append(current_category)
+        children = get_children_categories(cursor, current_category)
+        for child in children:
+            dfs(child)
+    dfs(start_category)
+    connection.close()
+    return result
+
+
+
 def get_user_business_name(email, role):
     connection = sqlite3.connect(db_path)
     cursor = connection.cursor()
@@ -72,18 +95,71 @@ def get_seller_rating(seller_email):
         return None
 
 @app.route('/')
-@app.route('/page/<int:page>')
-def mainpage(page=1):
-    # Old root directory, now we redirect to the main page
-    # return render_template('login.html')
+@app.route('/category/<string:category>')
+@app.route('/category/<string:category>/<string:subcategory>')
+@app.route('/category/<string:category>/<string:subcategory>/<string:subsubcategory>')
+def mainpage(category="All", subcategory="", subsubcategory=""):
+    user = session.get('user')
+
+    page = request.args.get('page', 1, type=int)
     PAGE_SIZE = 60
 
     connection = sqlite3.connect(db_path)
     cursor = connection.cursor()
-    cursor.execute('''
-        SELECT count(*) FROM product_listings
-        WHERE Status = 1; 
-        ''')
+
+    # To form queries, we create base SQL queries and append onto them depending on
+    # the search filters and things like category and subcategory
+
+    count_query = '''
+        SELECT count(*)
+        FROM product_listings p
+        JOIN categories c ON p.Category = c.category_name
+        WHERE p.Status = 1
+    '''
+
+    data_query = '''
+        SELECT 
+            p.Product_Title, 
+            p.Product_Name, 
+            s.Business_Name,
+            p.Listing_ID, 
+            p.Quantity, 
+            p.Product_Price,
+            p.Seller_Email
+        FROM product_listings p, sellers s, categories c
+        WHERE p.Status = 1 
+          AND p.Seller_Email = s.email
+          AND p.Category = c.category_name
+    '''
+
+    filters = []
+    params = []
+    parent_category = ""
+
+    if subsubcategory:
+        filters.append('p.Category = ?')
+        params.append(subsubcategory)
+        parent_category = subsubcategory
+    elif subcategory:
+        all_descendants = dfs_category(subcategory)
+        filters.append('p.Category IN (' + ','.join(['?'] * len(all_descendants)) + ')')
+        params.extend(all_descendants)
+        parent_category = subcategory
+    elif category != "All":
+        all_descendants = dfs_category(category)
+        filters.append('p.Category IN (' + ','.join(['?'] * len(all_descendants)) + ')')
+        params.extend(all_descendants)
+        parent_category = category
+    else:
+        parent_category = "Root"
+
+    if filters:
+        count_query += ' AND ' + ' AND '.join(filters)
+        data_query += ' AND ' + ' AND '.join(filters)
+
+    print("FINAL COUNT QUERY:\n" + count_query)
+    print("COUNT PARAMS: " + str(params))
+    cursor.execute(count_query, tuple(params))
     total_listings = cursor.fetchone()[0]
     total_pages = (total_listings + PAGE_SIZE - 1) // PAGE_SIZE
 
@@ -94,22 +170,21 @@ def mainpage(page=1):
 
     offset = (page - 1) * PAGE_SIZE
 
-    cursor.execute('''
-       SELECT 
-        p.Product_Title, 
-        p.Product_Name, 
-        s.Business_Name,
-        p.Listing_ID, 
-        p.Quantity, 
-        p.Product_Price,
-        p.Seller_Email
-        FROM product_listings p, sellers s
-        WHERE p.Status = 1 
-        AND p.Seller_Email = s.email
-        ORDER BY p.Listing_ID
-        LIMIT ? OFFSET ?;
-    ''', (PAGE_SIZE, offset))
+    data_query += ' ORDER BY p.Listing_ID LIMIT ? OFFSET ?'
+    data_params = params + [PAGE_SIZE, offset]
+
+    print("FINAL DATA QUERY:\n" + data_query)
+    print("DATA PARAMS: " + str(data_params))
+    cursor.execute(data_query, tuple(data_params))
     listings = cursor.fetchall()
+
+    # For category listing on the navbar
+    cursor.execute('''
+        SELECT category_name
+        FROM categories
+        WHERE parent_category = ?
+    ''', (parent_category,))
+    categories = cursor.fetchall()
 
     enhanced_listings = []
     for listing in listings:
@@ -118,9 +193,16 @@ def mainpage(page=1):
         enhanced_listings.append(
             (product_title, product_name, business_name, listing_id, quantity, price, seller_email, seller_rating))
 
-    user = session.get('user')
-
-    return render_template('mainpage.html', listings=enhanced_listings, page=page, total_pages=total_pages, user=user)
+    return render_template('mainpage.html',
+                           listings=enhanced_listings,
+                           categories=categories,
+                           category=category,
+                           subcategory=subcategory,
+                           subsubcategory=subsubcategory,
+                           page=page,
+                           total_pages=total_pages,
+                           user=user
+                           )
 
 @app.route('/listing/<int:listing_id>', methods=['GET'])
 def listing_detail(listing_id):
