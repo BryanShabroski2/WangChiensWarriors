@@ -38,13 +38,17 @@
     <div class="container d-flex justify-content-end py-1">
        {% if session.user %}
            {% if session.user.role == 'helpdesk' %}
-                <a href="{{ url_for('helpdesk_dashboard') }}" class="btn btn-info btn-sm mr-3">Helpdesk Dashboard</a>
+                <a href="{{ url_for('helpdesk_dashboard') }}" class="btn btn-primary btn-sm mr-3">Helpdesk Portal</a>
             {% endif %}
-            <a href="{{ url_for('profile') }}" class="mr-3 text-dark">Profile</a>
-            <a href="{{ url_for('logout') }}" class="text-danger mr-3">Logout</a>
+           <div class="d-flex align-items-center">
+                <a href="{{ url_for('profile') }}" class="mr-3 text-dark">Profile</a>
+                <a href="{{ url_for('logout') }}" class="text-danger mr-3">Logout</a>
+           </div>
         {% else %}
-            <a href="{{ url_for('login_form') }}" class="mr-3 text-dark">Login</a>
-            <a href="{{ url_for('register_form') }}" class="btn btn-primary btn-sm btn-register">Register</a>
+           <div class="d-flex align-items-center">
+                <a href="{{ url_for('login_form') }}" class="mr-3 text-dark">Login</a>
+                <a href="{{ url_for('register_form') }}" class="btn btn-primary btn-sm btn-register">Register</a>
+           </div>
         {% endif %}
     </div>
 </div>
@@ -111,7 +115,14 @@
 
     {% if user %}
         <div class="alert alert-info">
-            <h4>Welcome, {{ user.email }}!</h4>
+            <h4>
+                Welcome,
+                {% if user.business_name %}
+                    {{ user.business_name }} ({{ user.email }})!
+                {% else %}
+                    {{ user.email }}!
+                {% endif %}
+            </h4>
         </div>
 
         {% if user.role == 'buyer' %}
@@ -125,13 +136,6 @@
                 <a href="#" class="btn btn-outline-success">Published Products</a>
                 <a href="#" class="btn btn-outline-secondary">Edit Product Details</a>
                 <a href="#" class="btn btn-outline-info">View Buyer Feedback</a>
-            </div>
-        {% elif user.role == 'helpdesk' %}
-            <div class="mb-4">
-                <a href="{{ url_for('profile') }}" class="btn btn-outline-primary">View Personal Info</a>
-                {% if session.user.role == 'helpdesk' %}
-                <a href="{{ url_for('helpdesk_dashboard') }}" class="btn btn-outline-dark">Helpdesk Portal</a>
-                {% endif %}
             </div>
         {% endif %}
     {% endif %}
@@ -153,15 +157,14 @@
         {% for listing in listings %}
             <div class="col-6 col-md-3 mb-5">
                 <div class="card h-100 product-card">
-
-                   <!-- <img src="https://via.placeholder.com/300x200" class="card-img-top" alt="Product image"> -->
                     <div class="card-body p-2">
                         <h6 class="card-title mb-5">
                             <a href="{{ url_for('listing_detail', listing_id=listing[3]) }}" class="text-dark">
                                 {{ listing[0] }} - {{ listing[1] }}
                             </a>
                         </h6>
-                        <p class="mb-0 text-muted small">Seller: {{ listing[2] }}</p>
+                        <a href="{{ url_for('seller_detail', seller_name=listing[2]) }}" class="text-secondary"> Seller: {{ listing[2] }}</a>
+                        <p>(Rating: {{ listing[7] if listing[7] is not none else 'N/A' }})</p>
                         <p class="mb-0">Quantity: {{ listing[4] }}</p>
                         <p class="mb-0 text-danger font-weight-bold">{{ listing[5] }}</p>
                     </div>

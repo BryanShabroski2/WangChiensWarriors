@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>{{ product.title }} – NittanyBusiness</title>
+    <title>{{ seller[0] }} - Seller Profile</title>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css">
 </head>
 <body class="bg-light">
@@ -36,24 +36,29 @@
         </div>
     </nav>
 
-    <div class="container mt-5">
-        <div class="card">
-            <div class="card-body">
-                <h2 class="card-title">{{ product.title }} - {{ product.name }}</h2>
-                <h5 class="text-muted">
-                    Sold by
-                    <a href="{{ url_for('seller_detail', seller_name=product.seller_name) }}" class="text-primary">
-                        {{ product.seller_name }}
-                    </a>
-                    - (Rating: {{ seller_rating }})
-                </h5>
-                <p> <strong>Description:</strong> {{ product.description }}</p>
-                <p><strong>Price:</strong> {{ product.price }}</p>
-                <p><strong>Available Quantity:</strong> {{ product.quantity }}</p>
-                <a href="{{ url_for('order_review', listing_id=product['listing_id']) }}" class="btn btn-success">Buy Now</a>
-                <a href="{{ url_for('mainpage') }}" class="btn btn-secondary">Back to Main Page</a>
+<div class="container mt-5">
+    <h2>{{ seller[0] }} </h2>
+    <h5 class="text-muted">Rating: {{ seller_rating }}</h5>
+    <p><strong>Contact email:</strong> {{ seller[1] }}</p>
+
+    <h4>Reviews</h4>
+
+    {% if reviews %}
+        {% for review in reviews %}
+            <div class="card mb-3">
+                <div class="card-body">
+                    <h6 class="card-title">Rating: {{ review[0] }}/5</h6>
+                    <p class="card-text">{{ review[1] }}</p>
+                </div>
             </div>
-        </div>
-    </div>
+        {% endfor %}
+    {% else %}
+        <p>No reviews yet.</p>
+    {% endif %}
+
+
+    <a href="{{ url_for('mainpage') }}" class="btn btn-secondary">Back to Main Page</a>
+</div>
+
 </body>
 </html>

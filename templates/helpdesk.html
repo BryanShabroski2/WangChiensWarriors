@@ -111,7 +111,7 @@
                                     <td>{{ request.request_status }}</td>
                                     <td>
                                         {% if request.request_type == 'AddCategory' and request.request_status != 'COMPLETED' %}
-                                            <button type="button" class="btn btn-success btn-sm" data-toggle="modal" data-target="#addCategoryModal" data-requestid="{{ request.request_id }}">
+                                            <button type="button" class="btn btn-primary btn-sm" data-toggle="modal" data-target="#addCategoryModal" data-requestid="{{ request.request_id }}">
                                                 Process
                                             </button>
                                         {% elif request.request_status != 'COMPLETED' %}
