@@ -69,18 +69,42 @@
 <div class="bg-white border-bottom">
     <div class="container">
         <ul id="miniNav" class="nav category-bar py-1">
-            <!-- Top‑level categories – replace with dynamic SQL later -->
-            <li class="nav-item"><a class="nav-link text-dark" href="#">All</a></li>
-            <li class="nav-item"><a class="nav-link text-dark" href="#">Electronics</a></li>
-            <li class="nav-item"><a class="nav-link text-dark" href="#">Home &amp; Garden</a></li>
-            <li class="nav-item"><a class="nav-link text-dark" href="#">Clothing</a></li>
-            <li class="nav-item"><a class="nav-link text-dark" href="#">Sports</a></li>
-            <li class="nav-item"><a class="nav-link text-dark" href="#">Toys</a></li>
-            <li class="nav-item"><a class="nav-link text-dark" href="#">Business</a></li>
-            <li class="nav-item"><a class="nav-link text-dark" href="#">Refurbished</a></li>
+            {% if subsubcategory %}
+                <li class="nav-item">
+                    <a class="nav-link text-dark" href="{{ url_for('mainpage', category=category, subcategory=subcategory) }}">Go back ({{ subcategory }})</a>
+                </li>
+            {% elif subcategory %}
+            <li class="nav-item">
+                <a class="nav-link text-dark" href="{{ url_for('mainpage', category=category) }}">Go back ({{ category }})</a>
+            </li>
+            {% endif %}
+
+            <li class="nav-item">
+                <a class="nav-link text-dark" href="{{ url_for('mainpage') }}">All</a>
+            </li>
+
+            {% for cat in categories %}
+                {% set link_args = {} %}
+                {% if subcategory %}
+                    {# Currently at /category/category/subcategory -> next level is subsubcategory #}
+                    {% set link_args = {'category': category, 'subcategory': subcategory, 'subsubcategory': cat[0]} %}
+                {% elif category != "All" %}
+                    {# Currently at /category/category -> next level is subcategory #}
+                    {% set link_args = {'category': category, 'subcategory': cat[0]} %}
+                {% else %}
+                    {# At root (All), so first click should be category #}
+                    {% set link_args = {'category': cat[0]} %}
+                {% endif %}
+
+                <li class="nav-item">
+                    <a class="nav-link text-dark" href="{{ url_for('mainpage', **link_args) }}">{{ cat[0] }}</a>
+                </li>
+            {% endfor %}
         </ul>
     </div>
 </div>
+
+
 
 <!-- Main product section -->
 <main class="container my-4">
@@ -112,7 +136,17 @@
         {% endif %}
     {% endif %}
 
-    <h3 class="mb-3">All Items</h3>
+    <h3 class="mb-3">
+    {% if subsubcategory %}
+        Items - {{ subsubcategory }}
+    {% elif subcategory %}
+        Items - {{ subcategory }}
+    {% elif category and category != "All" %}
+        Items - {{ category }}
+    {% else %}
+        All Items
+    {% endif %}
+    </h3>
 
     <!-- Placeholder grid iterate from DB later -->
     <div class="row">
@@ -137,29 +171,43 @@
     </div>
 
 
+
     <!-- Pagination -->
     <nav aria-label="Page navigation">
-    <ul class="pagination justify-content-center">
+        <ul class="pagination justify-content-center">
 
-        {# Previous button #}
-        <li class="page-item {% if page <= 1 %}disabled{% endif %}">
-            <a class="page-link" href="{{ url_for('mainpage', page=page-1) }}" tabindex="-1">Previous</a>
-        </li>
+            {% set pagination_link_args = {} %}
+            {% if subsubcategory %}
+                {% set pagination_link_args = {'category': category, 'subcategory': subcategory, 'subsubcategory': subsubcategory} %}
+            {% elif subcategory %}
+                {% set pagination_link_args = {'category': category, 'subcategory': subcategory} %}
+            {% elif category and category != "All" %}
+                {% set pagination_link_args = {'category': category} %}
+            {% endif %}
 
-        {# Numbered pages #}
-        {% for p in range(1, total_pages + 1) %}
-            <li class="page-item {% if p == page %}active{% endif %}">
-                <a class="page-link" href="{{ url_for('mainpage', page=p) }}">{{ p }}</a>
+            {# Previous button #}
+            <li class="page-item {% if page <= 1 %}disabled{% endif %}">
+                {% set _ = pagination_link_args.update({'page': page-1}) %}
+                <a class="page-link" href="{{ url_for('mainpage', **pagination_link_args) }}">Previous</a>
             </li>
-        {% endfor %}
 
-        {# Next button #}
-        <li class="page-item {% if page >= total_pages %}disabled{% endif %}">
-            <a class="page-link" href="{{ url_for('mainpage', page=page+1) }}">Next</a>
-        </li>
+            {# Numbered pages #}
+            {% for p in range(1, total_pages + 1) %}
+                {% set _ = pagination_link_args.update({'page': p}) %}
+                <li class="page-item {% if p == page %}active{% endif %}">
+                    <a class="page-link" href="{{ url_for('mainpage', **pagination_link_args) }}">{{ p }}</a>
+                </li>
+            {% endfor %}
 
-    </ul>
-</nav>
+            {# Next button #}
+            <li class="page-item {% if page >= total_pages %}disabled{% endif %}">
+                {% set _ = pagination_link_args.update({'page': page+1}) %}
+                <a class="page-link" href="{{ url_for('mainpage', **pagination_link_args) }}">Next</a>
+            </li>
+
+        </ul>
+    </nav>
+
 
 </main>
 
