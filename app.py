@@ -26,6 +26,33 @@ def get_user_role(email):
     connection.close()
     return None  # fallback if role not found
 
+def get_user_business_name(email, role):
+    connection = sqlite3.connect(db_path)
+    cursor = connection.cursor()
+
+    if role == 'buyer':
+        cursor.execute("SELECT business_name FROM buyers WHERE email = ?", (email,))
+        result = cursor.fetchone()
+        if result:
+            return result[0]
+        else:
+            return None
+
+    elif role == 'seller':
+        cursor.execute("SELECT business_name FROM sellers WHERE email = ?", (email,))
+        result = cursor.fetchone()
+        if result:
+            return result[0]
+        else:
+            return None
+
+    # helpdesk staff don't have a business name
+    elif role == 'helpdesk':
+        return None
+
+    connection.close()
+    return None  # fallback if role is unknown
+
 @app.route('/')
 @app.route('/page/<int:page>')
 def mainpage(page=1):
@@ -225,9 +252,12 @@ def login():
 
     if check_password_hash(hashed_password, password):
         role = get_user_role(email)
+        business_name = get_user_business_name(email, role)
+        print(email, role, business_name)
         session['user'] = {
             'email': email,
-            'role': role
+            'role': role,
+            'business_name': business_name
         }
         return redirect(url_for('mainpage', success='Logged in successfully!'))
 
