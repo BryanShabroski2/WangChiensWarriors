@@ -783,6 +783,226 @@ def add_category():
 
 
 
+@app.route('/products')
+def product_listings():
+    if 'user' not in session or session['user']['role'] != 'seller':
+        return redirect(url_for('mainpage'))
+
+    user_email = session['user']['email']
+
+    connection = sqlite3.connect(db_path)
+    connection.row_factory = sqlite3.Row
+    cursor = connection.cursor()
+
+    cursor.execute('''
+        SELECT * FROM product_listings
+        WHERE Seller_Email = ? AND Status = '1'
+        ORDER BY Listing_ID
+    ''', (user_email,))
+    active_products = cursor.fetchall()
+
+    cursor.execute('''
+        SELECT * FROM product_listings
+        WHERE Seller_Email = ? AND Status = '0'
+        ORDER BY Listing_ID
+    ''', (user_email,))
+    inactive_products = cursor.fetchall()
+
+    cursor.execute('''
+        SELECT * FROM product_listings
+        WHERE Seller_Email = ? AND Status = '2'
+        ORDER BY Listing_ID
+    ''', (user_email,))
+    sold_products = cursor.fetchall()
+
+    cursor.execute('''
+        SELECT category_name FROM categories
+        ORDER BY category_name
+    ''')
+    categories = cursor.fetchall()
+
+    connection.close()
+
+    return render_template('product_listings.html',user=session['user'],active_products=active_products,inactive_products=inactive_products,sold_products=sold_products,categories=categories)
+
+
+# Add a new product
+@app.route('/products/add', methods=['POST'])
+def add_product():
+    if 'user' not in session or session['user']['role'] != 'seller':
+        return redirect(url_for('mainpage'))
+
+    user_email = session['user']['email']
+
+    category = request.form['category']
+    product_title = request.form['product_title']
+    product_name = request.form['product_name']
+    product_description = request.form['product_description']
+    product_price = request.form['product_price']
+    quantity = request.form['quantity']
+
+    connection = sqlite3.connect(db_path)
+    cursor = connection.cursor()
+
+    # Generate a unique listing ID
+    import time
+    import random
+    listing_id = f"PROD_{int(time.time())}_{random.randint(1000, 9999)}"
+
+    # Insert the new product with status 1 (active)
+    cursor.execute('''
+        INSERT INTO product_listings
+        (Seller_Email, Listing_ID, Category, Product_Title, Product_Name, Product_Description, Quantity, Product_Price, Status)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, '1')
+    ''', (user_email, listing_id, category, product_title, product_name, product_description, quantity, product_price))
+
+    connection.commit()
+    connection.close()
+
+    return redirect(url_for('product_listings'))
+
+
+
+@app.route('/products/update', methods=['POST'])
+def update_product():
+    if 'user' not in session or session['user']['role'] != 'seller':
+        return redirect(url_for('mainpage'))
+
+    user_email = session['user']['email']
+    listing_id = request.form['listing_id']
+    category = request.form['category']
+    product_title = request.form['product_title']
+    product_name = request.form['product_name']
+    product_description = request.form['product_description']
+    product_price = request.form['product_price']
+    quantity = request.form['quantity']
+
+    connection = sqlite3.connect(db_path)
+    cursor = connection.cursor()
+
+    cursor.execute('''
+        UPDATE product_listings
+        SET Category = ?, Product_Title = ?, Product_Name = ?, Product_Description = ?, Quantity = ?, Product_Price = ?,
+            Status = CASE 
+                        WHEN ? = 0 THEN '2'  -- If quantity is 0, mark as sold out (status 2)
+                        ELSE Status          -- Otherwise keep current status
+                     END
+        WHERE Listing_ID = ? AND Seller_Email = ?
+    ''', (category, product_title, product_name, product_description, quantity, product_price, quantity, listing_id,
+          user_email))
+
+    connection.commit()
+    connection.close()
+
+    return redirect(url_for('product_listings'))
+
+
+@app.route('/products/deactivate', methods=['POST'])
+def deactivate_product():
+    if 'user' not in session or session['user']['role'] != 'seller':
+        return redirect(url_for('mainpage'))
+
+    user_email = session['user']['email']
+    listing_id = request.form['listing_id']
+
+    connection = sqlite3.connect(db_path)
+    cursor = connection.cursor()
+
+    cursor.execute('SELECT Product_Title FROM product_listings WHERE Listing_ID = ? AND Seller_Email = ?',
+                   (listing_id, user_email))
+    result = cursor.fetchone()
+
+    if result:
+        product_title = result[0]
+
+        cursor.execute('''
+            UPDATE product_listings
+            SET Status = '0'
+            WHERE Listing_ID = ? AND Seller_Email = ?
+        ''', (listing_id, user_email))
+
+        connection.commit()
+        connection.close()
+
+        return redirect(
+            url_for('product_listings'))
+    else:
+        connection.close()
+        return redirect(
+            url_for('product_listings'))
+
+
+@app.route('/products/activate', methods=['POST'])
+def activate_product():
+    if 'user' not in session or session['user']['role'] != 'seller':
+        return redirect(url_for('mainpage'))
+
+    user_email = session['user']['email']
+    listing_id = request.form['listing_id']
+
+    connection = sqlite3.connect(db_path)
+    cursor = connection.cursor()
+
+    cursor.execute('SELECT Product_Title, Quantity FROM product_listings WHERE Listing_ID = ? AND Seller_Email = ?',
+                   (listing_id, user_email))
+    result = cursor.fetchone()
+
+    if result:
+        product_title, quantity = result
+
+        status = '1' if int(quantity) > 0 else '2'
+
+        cursor.execute('''
+            UPDATE product_listings
+            SET Status = ?
+            WHERE Listing_ID = ? AND Seller_Email = ?
+        ''', (status, listing_id, user_email))
+
+        connection.commit()
+        connection.close()
+
+        return redirect(url_for('product_listings'))
+    else:
+        connection.close()
+        return redirect(
+            url_for('product_listings'))
+
+
+@app.route('/products/restock', methods=['POST'])
+def restock_product():
+    if 'user' not in session or session['user']['role'] != 'seller':
+        return redirect(url_for('mainpage'))
+
+    user_email = session['user']['email']
+    listing_id = request.form['listing_id']
+    quantity = request.form['quantity']
+
+    connection = sqlite3.connect(db_path)
+    cursor = connection.cursor()
+
+    cursor.execute('SELECT Product_Title FROM product_listings WHERE Listing_ID = ? AND Seller_Email = ?',
+                   (listing_id, user_email))
+    result = cursor.fetchone()
+
+    if result:
+        product_title = result[0]
+
+        cursor.execute('''
+            UPDATE product_listings
+            SET Quantity = ?, Status = '1'
+            WHERE Listing_ID = ? AND Seller_Email = ?
+        ''', (quantity, listing_id, user_email))
+
+        connection.commit()
+        connection.close()
+
+        return redirect(
+            url_for('product_listings'))
+    else:
+        connection.close()
+        return redirect(
+            url_for('product_listings'))
+
 if __name__ == '__main__':
     app.run(debug=True)
 

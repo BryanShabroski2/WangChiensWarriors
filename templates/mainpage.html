@@ -33,23 +33,26 @@
 </head>
 <body class="bg-light">
 
-<!-- Top utility row (login / register) -->
+<!--Button navigation-->
 <div class="top‑utility bg-white border-bottom">
     <div class="container d-flex justify-content-end py-1">
        {% if session.user %}
            {% if session.user.role == 'helpdesk' %}
                 <a href="{{ url_for('helpdesk_dashboard') }}" class="btn btn-primary btn-sm mr-3">Helpdesk Portal</a>
-            {% endif %}
+           {% elif session.user.role == 'seller' %}
+                <a href="{{ url_for('product_listings') }}" class="btn btn-primary btn-sm mr-3">Manage Products</a>
+           {% endif %}
+
            <div class="d-flex align-items-center">
                 <a href="{{ url_for('profile') }}" class="mr-3 text-dark">Profile</a>
                 <a href="{{ url_for('logout') }}" class="text-danger mr-3">Logout</a>
            </div>
-        {% else %}
+       {% else %}
            <div class="d-flex align-items-center">
                 <a href="{{ url_for('login_form') }}" class="mr-3 text-dark">Login</a>
                 <a href="{{ url_for('register_form') }}" class="btn btn-primary btn-sm btn-register">Register</a>
            </div>
-        {% endif %}
+       {% endif %}
     </div>
 </div>
 

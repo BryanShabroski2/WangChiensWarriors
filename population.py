@@ -13,7 +13,7 @@ def populateUsers(usersCsvPath, dbPath):
 
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY,
+            id INTEGER PRIMARY,
             email TEXT NOT NULL UNIQUE,
             hashed_password TEXT NOT NULL
         )
