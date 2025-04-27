@@ -1003,6 +1003,179 @@ def restock_product():
         return redirect(
             url_for('product_listings'))
 
+def _open():
+    c = sqlite3.connect(db_path)
+    c.row_factory = sqlite3.Row
+    return c
+
+def mg_get_categories():
+    with _open() as c:
+        return [r["category_name"] for r in
+                c.execute("SELECT category_name FROM categories ORDER BY category_name")]
+
+def mg_publish(cat, name, title, desc, qty, price):
+    sql = '''INSERT INTO product_listings
+             (seller_email, category, product_name, product_title,
+              product_description, quantity, product_price, status)
+             VALUES (NULL,?,?,?,?,?, ?,1)'''
+    with _open() as c:
+        c.execute(sql, (cat, name, title, desc, qty, price)); c.commit()
+
+def mg_listings():
+    with _open() as c:
+        return [dict(r) for r in c.execute(
+            "SELECT * FROM product_listings ORDER BY listing_id DESC")]
+
+def mg_get(lid):
+    with _open() as c:
+        r = c.execute("SELECT * FROM product_listings WHERE listing_id=?", (lid,)).fetchone()
+    return dict(r) if r else None
+
+def mg_update(lid, **cols):
+    if not cols:
+        return
+    sets = ", ".join(f"{k}=?" for k in cols)
+    vals = list(cols.values()) + [lid]
+    with _open() as c:
+        c.execute(f"UPDATE product_listings SET {sets} WHERE listing_id=?", vals); c.commit()
+
+def mg_delete(lid):
+    with _open() as c:
+        c.execute("DELETE FROM product_listings WHERE listing_id=?", (lid,)); c.commit()
+
+
+def srch_products(kws="", lo=None, hi=None):
+    words  = [w for w in kws.split() if w]
+    sql    = '''SELECT listing_id, product_title, product_description,
+                       category, product_price, quantity, status
+                  FROM product_listings WHERE 1=1'''
+    params = {}
+    for i,w in enumerate(words):
+        key=f"kw{i}"; sql+=f" AND (product_title LIKE :{key} OR product_description LIKE :{key} OR category LIKE :{key})"
+        params[key]=f"%{w}%"
+    if lo: sql+=" AND product_price>=:lo"; params["lo"]=float(lo)
+    if hi: sql+=" AND product_price<=:hi"; params["hi"]=float(hi)
+    sql+=" ORDER BY product_price ASC"
+    with _open() as c:
+        return [dict(r) for r in c.execute(sql, params)]
+
+
+    @app.route('/admin')
+    def admin_home():
+        return render_template('manage.html', listings=mg_listings())
+
+    @app.route('/admin/publish', methods=['GET', 'POST'])
+    def admin_publish():
+        if request.method == 'POST':
+            mg_publish(request.form['category'],
+                       request.form['product_name'],
+                       request.form['title'],
+                       request.form['desc'],
+                       int(request.form['qty']),
+                       float(request.form['price']))
+            return redirect(url_for('admin_home'))
+        return render_template('publish.html', categories=mg_get_categories())
+
+    @app.route('/admin/edit/<int:lid>', methods=['GET', 'POST'])
+    def admin_edit(lid):
+        if request.method == 'POST':
+            mg_update(lid,
+                      category=request.form.get('category'),
+                      product_name=request.form.get('product_name'),
+                      product_title=request.form.get('title'),
+                      product_description=request.form.get('desc'),
+                      quantity=int(request.form.get('qty', 0)),
+                      product_price=float(request.form.get('price', 0.0)))
+            return redirect(url_for('admin_home'))
+        listing = mg_get(lid)
+        if not listing: abort(404)
+        return render_template('edit.html', listing=listing, categories=mg_get_categories())
+
+    @app.route('/admin/delete', methods=['POST'])
+    def admin_delete():
+        mg_delete(int(request.form['listing_id']))
+        return redirect(url_for('admin_home'))
+
+
+    @app.route('/search')
+    def search():
+        kw = request.args.get('keywords', '')
+        lo = request.args.get('min_price', '')
+        hi = request.args.get('max_price', '')
+        results = srch_products(kw, lo, hi)
+        return render_template('search.html',
+                               results=results,
+                               keywords=kw, min_price=lo, max_price=hi)
+@app.route('/search')
+def search():
+    keyword   = request.args.get('q', '').strip()
+    min_price = request.args.get('min', '').strip()
+    max_price = request.args.get('max', '').strip()
+    page      = request.args.get('page', 1, type=int)
+    PAGE_SIZE = 60
+
+    connection = sqlite3.connect(db_path)
+    cursor     = connection.cursor()
+
+ 
+    wheres, params = ["p.Status = 1"], []
+
+    if keyword:
+        for w in keyword.split():
+            like = f'%{w}%'
+            wheres.append('(p.Product_Title LIKE ? OR p.Product_Description LIKE ? OR p.Category LIKE ?)')
+            params.extend([like, like, like])
+
+    if min_price:
+        wheres.append('p.Product_Price >= ?')
+        params.append(float(min_price))
+    if max_price:
+        wheres.append('p.Product_Price <= ?')
+        params.append(float(max_price))
+
+    where_clause = " AND ".join(wheres)
+
+  
+    cursor.execute(f'''
+        SELECT COUNT(*) FROM product_listings p
+        JOIN categories c ON p.Category = c.category_name
+        WHERE {where_clause}
+    ''', params)
+    total = cursor.fetchone()[0]
+    total_pages = max((total + PAGE_SIZE - 1) // PAGE_SIZE, 1)
+    page = max(1, min(page, total_pages))
+    offset = (page - 1) * PAGE_SIZE
+
+    data_sql = f'''
+        SELECT p.Product_Title, p.Product_Name, s.Business_Name,
+               p.Listing_ID, p.Quantity, p.Product_Price, p.Seller_Email
+        FROM product_listings p
+        JOIN sellers    s ON p.Seller_Email = s.email
+        JOIN categories c ON p.Category     = c.category_name
+        WHERE {where_clause}
+        ORDER BY p.Product_Price ASC
+        LIMIT ? OFFSET ?
+    '''
+    cursor.execute(data_sql, params + [PAGE_SIZE, offset])
+    rows = cursor.fetchall()
+    connection.close()
+
+    listings = [(*r, get_seller_rating(r[6])) for r in rows]
+
+
+    with sqlite3.connect(db_path) as c:
+        cats = c.execute(
+            "SELECT category_name FROM categories WHERE parent_category = 'Root'"
+        ).fetchall()
+
+    return render_template(
+        'mainpage.html',
+        listings=listings,
+        categories=cats,
+        category="All", subcategory="", subsubcategory="",
+        page=page, total_pages=total_pages,
+        user=session.get('user')
+    )
 if __name__ == '__main__':
     app.run(debug=True)
 
