@@ -63,10 +63,54 @@
     <div class="container">
         <a class="navbar-brand font-weight-bold" href="{{ url_for('mainpage') }}">NittanyBusiness</a>
 
-        <form class="form-inline mx-lg-4 flex-grow-1" action="{{ url_for('search') }}" method="GET">
-            <input class="form-control flex-grow-1 w-75" type="search" placeholder="Search for anything" name="q">
-            <button class="btn btn-outline-primary ml-2" type="submit">Search</button>
-        </form>
+<form class="form-inline mx-lg-4 flex-grow-1" action="{{ url_for('search') }}" method="GET">
+  <div class="input-group flex-grow-1">
+    <input
+      class="form-control"
+      type="search"
+      placeholder="Search for anything"
+      aria-label="Search"
+      name="q">
+
+    <div class="input-group-append dropdown">
+      <button
+        class="btn btn-outline-secondary dropdown-toggle"
+        type="button"
+        id="priceDropdown"
+        data-toggle="dropdown"
+        aria-haspopup="true"
+        aria-expanded="false">
+        Price
+      </button>
+      <div class="dropdown-menu dropdown-menu-right p-3" aria-labelledby="priceDropdown" style="min-width: 200px;">
+        <div class="form-group mb-2">
+          <label class="sr-only" for="price_min">Min price</label>
+          <input
+            type="number"
+            class="form-control form-control-sm"
+            id="price_min"
+            name="price_min"
+            placeholder="Min price"
+            step="0.01">
+        </div>
+        <div class="form-group mb-0">
+          <label class="sr-only" for="price_max">Max price</label>
+          <input
+            type="number"
+            class="form-control form-control-sm"
+            id="price_max"
+            name="price_max"
+            placeholder="Max price"
+            step="0.01">
+        </div>
+      </div>
+    </div>
+
+    <div class="input-group-append">
+      <button class="btn btn-outline-primary" type="submit">Search</button>
+    </div>
+  </div>
+</form>
 
         <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#miniNav" aria-controls="miniNav" aria-expanded="false" aria-label="Toggle navigation">
             <span class="navbar-toggler-icon"></span>

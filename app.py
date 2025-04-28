@@ -1187,6 +1187,89 @@ def restock_product():
         return redirect(
             url_for('product_listings'))
 
+def _open():
+    c = sqlite3.connect(db_path)
+    c.row_factory = sqlite3.Row
+    return c
+
+
+@app.route('/search')
+def search():
+    q = request.args.get('q', '').strip()
+    price_min = request.args.get('price_min', '').strip()
+    price_max = request.args.get('price_max', '').strip()
+    user = session.get('user')
+
+    connection = sqlite3.connect(db_path)
+    cursor = connection.cursor()
+    sql = '''
+        SELECT 
+            p.Product_Title, 
+            p.Product_Name, 
+            p.Category,               -- include category
+            p.Product_Description,    -- include description
+            s.Business_Name,
+            p.Listing_ID, 
+            p.Quantity, 
+            p.Product_Price, 
+            p.Seller_Email
+        FROM product_listings p
+        JOIN sellers s ON p.Seller_Email = s.email
+        WHERE p.Status = 1
+    '''
+    filters = []
+    params = []
+
+
+    if q:
+        filters.append(
+            '(p.Product_Title LIKE ? '
+            'OR p.Product_Name LIKE ? '
+            'OR p.Product_Description LIKE ? '
+            'OR p.Category LIKE ? '
+            'OR s.Business_Name LIKE ?)'
+        )
+        like_q = f'%{q}%'
+        # five placeholders, one for each field
+        params += [like_q, like_q, like_q, like_q, like_q]
+
+    if price_min:
+        filters.append(
+            "CAST(REPLACE(REPLACE(p.Product_Price, '$', ''), ',', '') AS REAL) >= ?"
+        )
+        params.append(price_min)
+
+
+    if price_max:
+        filters.append(
+            "CAST(REPLACE(REPLACE(p.Product_Price, '$', ''), ',', '') AS REAL) <= ?"
+        )
+        params.append(price_max)
+
+    if filters:
+        sql += ' AND ' + ' AND '.join(filters)
+
+    sql += ' ORDER BY p.Listing_ID'
+    cursor.execute(sql, tuple(params))
+    rows = cursor.fetchall()
+
+    enhanced = []
+    for title, name, category, description, biz, lid, qty, price, email in rows:
+        rating = get_seller_rating(email)
+        enhanced.append((title, name, biz, lid, qty, price, email, rating))
+
+    return render_template(
+        'mainpage.html',
+        listings=enhanced,
+        categories=[],
+        category="Search Results",
+        subcategory="",
+        subsubcategory="",
+        page=1,
+        total_pages=1,
+        user=user
+    )
+
 if __name__ == '__main__':
     app.run(debug=True)
 
