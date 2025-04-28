@@ -9,6 +9,15 @@
     <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js"></script>
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js"></script>
     <title>NittanyBusiness - Product Listings</title>
+    <style>
+        .star-rating {
+            color: #ffc107;
+        }
+        .review-badge {
+            font-size: 0.8rem;
+            padding: 0.3rem 0.6rem;
+        }
+    </style>
 </head>
 <body>
 <div class="container-fluid">
@@ -32,6 +41,12 @@
                 </li>
                 <li class="nav-item">
                     <a class="nav-link" id="sold-tab" data-toggle="tab" href="#sold" role="tab">Sold Out Products</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" id="reviews-tab" data-toggle="tab" href="#reviews" role="tab">Buyer Reviews</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" id="orders-tab" data-toggle="tab" href="#orders" role="tab">Order Management</a>
                 </li>
             </ul>
 
@@ -171,6 +186,156 @@
                                     <td colspan="7" class="text-center">No sold out products available.</td>
                                 </tr>
                                 {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+<!--Buyer reviews-->
+<div class="tab-pane fade" id="reviews" role="tabpanel">
+    <div class="card mb-4">
+        <div class="card-body">
+            <h4>Overall Rating:
+                <span class="font-weight-bold">
+                    {{ seller_rating if seller_rating else 'No ratings yet' }}
+                    {% if seller_rating %}/5{% endif %}
+                </span>
+            </h4>
+            <p class="text-muted">Based on {{ reviews|length if reviews else 0 }} reviews</p>
+        </div>
+    </div>
+
+                        <div class="table-responsive">
+                            <table class="table table-striped table-hover">
+                                <thead class="thead-dark">
+                                    <tr>
+                                        <th>Order ID</th>
+                                        <th>Rating</th>
+                                        <th>Review</th>
+                                        <th>Product</th>
+                                        <th>Date</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% if reviews %}
+                                        {% for review in reviews %}
+                                        <tr>
+                                            <td>{{ review.Order_ID }}</td>
+                                            <td>
+                                                <span class="font-weight-bold">{{ review.Rate }}/5</span>
+                                            </td>
+                                            <td>
+                                                {% if review.Review_Desc == "Awesome" %}
+                                                    <span class="badge badge-success review-badge">{{ review.Review_Desc }}</span>
+                                                {% elif review.Review_Desc == "Not Bad" %}
+                                                    <span class="badge badge-warning review-badge">{{ review.Review_Desc }}</span>
+                                                {% else %}
+                                                    <span class="badge badge-danger review-badge">{{ review.Review_Desc }}</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>{{ order_products[review.Order_ID] if review.Order_ID in order_products else "Unknown Product" }}</td>
+                                            <td>{{ order_dates[review.Order_ID] if review.Order_ID in order_dates else "Unknown Date" }}</td>
+                                        </tr>
+                                        {% endfor %}
+                                    {% else %}
+                                        <tr>
+                                            <td colspan="5" class="text-center">You haven't received any reviews yet. Reviews will appear here when buyers leave feedback on your products.</td>
+                                        </tr>
+                                    {% endif %}
+                                </tbody>
+                            </table>
+                        </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead class="thead-dark">
+                                <tr>
+                                    <th>Order ID</th>
+                                    <th>Rating</th>
+                                    <th>Review</th>
+                                    <th>Product</th>
+                                    <th>Date</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% if reviews %}
+                                    {% for review in reviews %}
+                                    <tr>
+                                        <td>{{ review.Order_ID }}</td>
+                                        <td>
+                                            <span class="star-rating">
+                                                {% for i in range(review.Rate) %}★{% endfor %}
+                                                {% for i in range(5 - review.Rate) %}☆{% endfor %}
+                                            </span>
+                                            {{ review.Rate }}/5
+                                        </td>
+                                        <td>
+                                            {% if review.Review_Desc == "Awesome" %}
+                                                <span class="badge badge-success review-badge">{{ review.Review_Desc }}</span>
+                                            {% elif review.Review_Desc == "Not Bad" %}
+                                                <span class="badge badge-warning review-badge">{{ review.Review_Desc }}</span>
+                                            {% else %}
+                                                <span class="badge badge-danger review-badge">{{ review.Review_Desc }}</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ order_products[review.Order_ID] if review.Order_ID in order_products else "Unknown Product" }}</td>
+                                        <td>{{ order_dates[review.Order_ID] if review.Order_ID in order_dates else "Unknown Date" }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                {% else %}
+                                    <tr>
+                                        <td colspan="5" class="text-center">You haven't received any reviews yet. Reviews will appear here when buyers leave feedback on your products.</td>
+                                    </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Order Management Tab -->
+                <div class="tab-pane fade" id="orders" role="tabpanel">
+                    <div class="card mb-4">
+                        <div class="card-body">
+                            <h4>Order Management</h4>
+                            <p class="text-muted">View and manage customer orders for your products</p>
+                        </div>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead class="thead-dark">
+                                <tr>
+                                    <th>Order ID</th>
+                                    <th>Date</th>
+                                    <th>Buyer</th>
+                                    <th>Product</th>
+                                    <th>Quantity</th>
+                                    <th>Total</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% if orders %}
+                                    {% for order in orders %}
+                                    <tr>
+                                        <td>{{ order.Order_ID }}</td>
+                                        <td>{{ order.Date }}</td>
+                                        <td>{{ order.Buyer_Email }}</td>
+                                        <td>
+                                            {{ order_products[order.Order_ID] if order.Order_ID in order_products else "Unknown Product" }}
+                                        </td>
+                                        <td>{{ order.Quantity }}</td>
+                                        <td>${{ order.Payment }}</td>
+                                        <td>
+                                            <span class="badge badge-success">Completed</span>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                {% else %}
+                                    <tr>
+                                        <td colspan="7" class="text-center">You haven't received any orders yet.</td>
+                                    </tr>
+                                {% endif %}
                             </tbody>
                         </table>
                     </div>
@@ -331,7 +496,7 @@
 
 <script>
     $(document).ready(function() {
-        //Load data
+        //Load data for edit modal
         $('#editProductModal').on('show.bs.modal', function (event) {
             var button = $(event.relatedTarget);
             var productId = button.data('productid');
@@ -351,3 +516,19 @@
             modal.find('#edit_product_price').val(price);
             modal.find('#edit_quantity').val(quantity);
         });
+
+        //Load data for restock modal
+        $('#restockModal').on('show.bs.modal', function (event) {
+            var button = $(event.relatedTarget);
+            var productId = button.data('productid');
+            var title = button.data('title');
+
+            var modal = $(this);
+            modal.find('#restock_listing_id').val(productId);
+            modal.find('#restock_product_title').text(title);
+        });
+
+    });
+</script>
+</body>
+</html>

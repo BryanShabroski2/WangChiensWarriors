@@ -40,7 +40,10 @@
            {% if session.user.role == 'helpdesk' %}
                 <a href="{{ url_for('helpdesk_dashboard') }}" class="btn btn-primary btn-sm mr-3">Helpdesk Portal</a>
            {% elif session.user.role == 'seller' %}
-                <a href="{{ url_for('product_listings') }}" class="btn btn-primary btn-sm mr-3">Manage Products</a>
+                <div class="mb-4">
+                    <a href="{{ url_for('profile') }}" class="btn btn-outline-primary">View Personal Info</a>
+                    <a href="{{ url_for('product_listings') }}" class="btn btn-outline-success">Seller Management Dashboard</a>
+                </div>
            {% endif %}
 
            <div class="d-flex align-items-center">
@@ -113,7 +116,7 @@
 
 
 
-<!-- Main product section -->
+<!--Main product section-->
 <main class="container my-4">
 
     {% if user %}
@@ -130,15 +133,11 @@
 
         {% if user.role == 'buyer' %}
             <div class="mb-4">
-                <a href="{{ url_for('profile') }}" class="btn btn-outline-primary">View Personal Info</a>
-                <a href="#" class="btn btn-outline-success">Shopping Cart</a>
+
             </div>
         {% elif user.role == 'seller' %}
             <div class="mb-4">
-                <a href="{{ url_for('profile') }}" class="btn btn-outline-primary">View Personal Info</a>
-                <a href="#" class="btn btn-outline-success">Published Products</a>
-                <a href="#" class="btn btn-outline-secondary">Edit Product Details</a>
-                <a href="#" class="btn btn-outline-info">View Buyer Feedback</a>
+
             </div>
         {% endif %}
     {% endif %}

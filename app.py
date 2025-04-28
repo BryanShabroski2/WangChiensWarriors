@@ -782,22 +782,21 @@ def add_category():
     return redirect(url_for('helpdesk', success=f'Category "{category_name}" has been added and request {request_id} has been completed.'))
 
 
-
 @app.route('/products')
 def product_listings():
-    #Get session and make sure seller
+    #Make sure seller
     if 'user' not in session or session['user']['role'] != 'seller':
         return redirect(url_for('mainpage'))
 
-    #get user email
+    #get email
     user_email = session['user']['email']
 
-    #Make connecction
+    #connect
     connection = sqlite3.connect(db_path)
     connection.row_factory = sqlite3.Row
     cursor = connection.cursor()
 
-    #Get listings
+    #listings
     cursor.execute('''
         SELECT * FROM product_listings
         WHERE Seller_Email = ? AND Status = '1'
@@ -819,16 +818,51 @@ def product_listings():
     ''', (user_email,))
     sold_products = cursor.fetchall()
 
-    #Get categories
+    #get catgories
     cursor.execute('''
         SELECT category_name FROM categories
         ORDER BY category_name
     ''')
     categories = cursor.fetchall()
 
+    #Get reviews
+    cursor.execute('''
+        SELECT r.Rate, r.Review_Desc, r.Order_ID
+        FROM reviews r
+        JOIN orders o ON r.Order_ID = o.Order_ID
+        WHERE o.Seller_Email = ?
+        ORDER BY r.Order_ID DESC
+    ''', (user_email,))
+
+    reviews = cursor.fetchall()
+
+    #Get all orders
+    cursor.execute('''
+        SELECT o.Order_ID, o.Date, o.Buyer_Email, o.Quantity, o.Payment, p.Product_Title
+        FROM orders o
+        JOIN product_listings p ON o.Listing_ID = p.Listing_ID
+        WHERE o.Seller_Email = ?
+        ORDER BY o.Date DESC
+    ''', (user_email,))
+
+    #get orders
+    orders = cursor.fetchall()
+
+    #get  rating
+    seller_rating = get_seller_rating(user_email)
+
+    #Dictionaries to map the order id with date and product
+    order_products = {}
+    order_dates = {}
+
+    for order in orders:
+        order_products[order['Order_ID']] = order['Product_Title']
+        order_dates[order['Order_ID']] = order['Date']
+
     connection.close()
-    #render
-    return render_template('product_listings.html',user=session['user'],active_products=active_products,inactive_products=inactive_products,sold_products=sold_products,categories=categories)
+
+    #render with all data
+    return render_template('product_listings.html', user=session['user'],active_products=active_products,inactive_products=inactive_products,sold_products=sold_products,categories=categories,reviews=reviews,orders=orders,seller_rating=seller_rating,order_products=order_products,order_dates=order_dates)
 
 
 # Add a new product
