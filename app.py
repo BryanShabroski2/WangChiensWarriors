@@ -1086,7 +1086,7 @@ def request_category():
     #get form data
     user_email = session['user']['email']
     category_name = request.form['category_name']
-    parent_category = request.form.get('parent_category', 'Root')
+    parent_category = request.form.get('parent_category', '')
     category_reason = request.form['category_reason']
 
     #connect
