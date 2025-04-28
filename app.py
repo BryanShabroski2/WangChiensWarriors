@@ -1011,66 +1011,80 @@ def _open():
 
 @app.route('/search')
 def search():
-    q          = request.args.get('q', '').strip()
-    rng        = request.args.get('price_range', '')  # e.g. "50-100" or "1000-"
-    page       = request.args.get('page', 1, type=int)
-    PAGE_SIZE  = 60
+    q = request.args.get('q', '').strip()
+    price_min = request.args.get('price_min', '').strip()
+    price_max = request.args.get('price_max', '').strip()
+    user = session.get('user')
 
-    min_p = max_p = None
-    if rng:
-        lo, _, hi = rng.partition('-')
-        if lo: min_p = float(lo)
-        if hi: max_p = float(hi)
+    connection = sqlite3.connect(db_path)
+    cursor = connection.cursor()
+    sql = '''
+        SELECT 
+            p.Product_Title, 
+            p.Product_Name, 
+            p.Category,               -- include category
+            p.Product_Description,    -- include description
+            s.Business_Name,
+            p.Listing_ID, 
+            p.Quantity, 
+            p.Product_Price, 
+            p.Seller_Email
+        FROM product_listings p
+        JOIN sellers s ON p.Seller_Email = s.email
+        WHERE p.Status = 1
+    '''
+    filters = []
+    params = []
 
-    wheres, params = ["p.Status = 1"], []
-    for w in q.split():
-        like = f'%{w}%'
-        wheres.append('('
-                      'p.Product_Title LIKE ? OR '
-                      'p.Product_Description LIKE ? OR '
-                      'p.Category LIKE ? OR '
-                      's.Business_Name LIKE ?)')
-        params.extend([like]*4)
-    if min_p is not None:
-        wheres.append('p.Product_Price >= ?'); params.append(min_p)
-    if max_p is not None:
-        wheres.append('p.Product_Price <= ?'); params.append(max_p)
 
-    where_sql = " AND ".join(wheres)
+    if q:
+        filters.append(
+            '(p.Product_Title LIKE ? '
+            'OR p.Product_Name LIKE ? '
+            'OR p.Product_Description LIKE ? '
+            'OR p.Category LIKE ? '
+            'OR s.Business_Name LIKE ?)'
+        )
+        like_q = f'%{q}%'
+        # five placeholders, one for each field
+        params += [like_q, like_q, like_q, like_q, like_q]
 
-    with _open() as c:
-        total = c.execute(f'''
-            SELECT COUNT(*) FROM product_listings p
-            JOIN sellers s ON p.Seller_Email = s.email 
-            WHERE {where_sql}''', params).fetchone()[0]
+    if price_min:
+        filters.append(
+            "CAST(REPLACE(REPLACE(p.Product_Price, '$', ''), ',', '') AS REAL) >= ?"
+        )
+        params.append(price_min)
 
-        total_pages = max((total + PAGE_SIZE - 1)//PAGE_SIZE, 1)
-        page = max(1, min(page, total_pages))
-        offset = (page-1)*PAGE_SIZE
 
-        rows = c.execute(f'''
-            SELECT p.Product_Title, p.Product_Name, s.Business_Name,
-                   p.Listing_ID, p.Quantity, p.Product_Price, p.Seller_Email
-              FROM product_listings p
-              JOIN sellers s ON p.Seller_Email = s.email
-             WHERE {where_sql}
-             ORDER BY p.Product_Price ASC
-             LIMIT ? OFFSET ?''', params+[PAGE_SIZE, offset]).fetchall()
+    if price_max:
+        filters.append(
+            "CAST(REPLACE(REPLACE(p.Product_Price, '$', ''), ',', '') AS REAL) <= ?"
+        )
+        params.append(price_max)
 
-    listings = [(*r, get_seller_rating(r[6])) for r in rows]
+    if filters:
+        sql += ' AND ' + ' AND '.join(filters)
 
-    with _open() as c:
-        cats = c.execute(
-            "SELECT category_name FROM categories WHERE parent_category = 'Root'"
-        ).fetchall()
+    sql += ' ORDER BY p.Listing_ID'
+    cursor.execute(sql, tuple(params))
+    rows = cursor.fetchall()
 
-    return render_template('mainpage.html',
-                           listings=listings,
-                           categories=cats,
-                           category="All", subcategory="", subsubcategory="",
-                           page=page, total_pages=total_pages,
-                           user=session.get('user'))
+    enhanced = []
+    for title, name, category, description, biz, lid, qty, price, email in rows:
+        rating = get_seller_rating(email)
+        enhanced.append((title, name, biz, lid, qty, price, email, rating))
 
+    return render_template(
+        'mainpage.html',
+        listings=enhanced,
+        categories=[],
+        category="Search Results",
+        subcategory="",
+        subsubcategory="",
+        page=1,
+        total_pages=1,
+        user=user
+    )
 
 if __name__ == '__main__':
     app.run(debug=True)
