@@ -4,6 +4,8 @@ from werkzeug.security import check_password_hash
 from werkzeug.security import generate_password_hash
 import datetime
 import random
+import time
+import random
 app = Flask(__name__)
 app.secret_key = 'dev'
 db_path = 'WCW.sqlite'
@@ -731,23 +733,21 @@ def email_change_request():
 
     user_email = session['user']['email']
     new_email = request.form['new_email']
-    reason = "ChangeID"
+    reason = "need my email changed"
 
     #connect to database
     connection = sqlite3.connect(db_path)
     cursor = connection.cursor()
 
-    #Create a unique ID for the ECR (Email change request)
-    import time
-    import random
-    request_id = f"ECR{int(time.time())}{random.randint(1000, 9999)}"
+    #Create a unique ID for the Email change request
+    request_id = f"{int(time.time())}{random.randint(1000, 9999)}"
 
     #insert into requests table
     cursor.execute('''
         INSERT INTO requests 
         (request_id, sender_email, helpdesk_staff_email, request_type, request_desc, request_status) 
         VALUES (?, ?, ?, ?, ?, ?)
-    ''', (request_id, user_email, None, "EMAIL_CHANGE", f"New email: {new_email}\nReason: {reason}", "PENDING"))
+    ''', (request_id, user_email, None, "ChangeID", f"New email: {new_email}\nReason: please change email", "PENDING"))
 
     connection.commit()
     connection.close()
@@ -825,7 +825,7 @@ def claim_request():
     connection.close()
 
     #redirect
-    return redirect(url_for('helpdesk', success=f'Request {request_id} has been assigned to you.'))
+    return redirect(url_for('helpdesk_dashboard', success=f'Request {request_id} has been assigned to you.'))
 
 
 
@@ -853,7 +853,7 @@ def complete_request():
     connection.commit()
     connection.close()
 
-    return redirect(url_for('helpdesk', success=f'Request {request_id} has been marked as completed.'))
+    return redirect(url_for('helpdesk_dashboard', success=f'Request {request_id} has been marked as completed.'))
 
 
 @app.route('/helpdesk/add_category', methods=['POST'])
@@ -903,7 +903,7 @@ def add_category():
     connection.commit()
     connection.close()
 
-    return redirect(url_for('helpdesk', success=f'Category "{category_name}" has been added and request {request_id} has been completed.'))
+    return redirect(url_for('helpdesk_dashboard', success=f'Category "{category_name}" has been added and request {request_id} has been completed.'))
 
 
 @app.route('/products')
@@ -996,9 +996,10 @@ def add_product():
     if 'user' not in session or session['user']['role'] != 'seller':
         return redirect(url_for('mainpage'))
 
-    #Get all from database
+    #Get session user
     user_email = session['user']['email']
 
+    #get from form
     category = request.form['category']
     product_title = request.form['product_title']
     product_name = request.form['product_name']
@@ -1006,14 +1007,15 @@ def add_product():
     product_price = request.form['product_price']
     quantity = request.form['quantity']
 
+    #TODO: FIX
+    #product_price = '${product_price}'
+
     #connect
     connection = sqlite3.connect(db_path)
     cursor = connection.cursor()
 
     #Create unique id for listing
-    import time
-    import random
-    listing_id = f"P{int(time.time())}{random.randint(1000, 9999)}"
+    listing_id = f'{int(time.time())}{random.randint(1000, 9999)}'
 
     #insert product
     cursor.execute('''
@@ -1022,6 +1024,7 @@ def add_product():
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, '1')
     ''', (user_email, listing_id, category, product_title, product_name, product_description, quantity, product_price))
 
+    #close
     connection.commit()
     connection.close()
 
@@ -1035,7 +1038,7 @@ def update_product():
     if 'user' not in session or session['user']['role'] != 'seller':
         return redirect(url_for('mainpage'))
 
-    #retreive from db
+    #get from form.
     user_email = session['user']['email']
     listing_id = request.form['listing_id']
     category = request.form['category']
@@ -1073,7 +1076,7 @@ def deactivate_product():
     if 'user' not in session or session['user']['role'] != 'seller':
         return redirect(url_for('mainpage'))
 
-    #Get user and listing id
+    #Get user and listing id from form
     user_email = session['user']['email']
     listing_id = request.form['listing_id']
 

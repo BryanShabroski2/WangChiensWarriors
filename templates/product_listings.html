@@ -8,11 +8,8 @@
     <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js"></script>
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js"></script>
-    <title>NittanyBusiness - Product Listings</title>
+    <title>NittanyBusiness - Seller Management Dashboard</title>
     <style>
-        .star-rating {
-            color: #ffc107;
-        }
         .review-badge {
             font-size: 0.8rem;
             padding: 0.3rem 0.6rem;
@@ -23,7 +20,7 @@
 <div class="container-fluid">
     <div class="row">
         <div class="col-md-12">
-            <h1>Product Listing Management</h1>
+            <h1>Seller Management Dashboard</h1>
             <p>Manage your products as a seller: {{ user.email }}</p>
             <div class="mb-4">
                 <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#addProductModal">
@@ -72,7 +69,7 @@
                                     <td>{{ product.Listing_ID }}</td>
                                     <td>{{ product.Category }}</td>
                                     <td>{{ product.Product_Title }}</td>
-                                    <td>${{ product.Product_Price }}</td>
+                                    <td>{{ product.Product_Price }}</td>
                                     <td>{{ product.Quantity }}</td>
                                     <td>
                                         <span class="badge badge-success">Active</span>
@@ -125,7 +122,7 @@
                                     <td>{{ product.Listing_ID }}</td>
                                     <td>{{ product.Category }}</td>
                                     <td>{{ product.Product_Title }}</td>
-                                    <td>${{ product.Product_Price }}</td>
+                                    <td>{{ product.Product_Price }}</td>
                                     <td>{{ product.Quantity }}</td>
                                     <td>
                                         <span class="badge badge-danger">Inactive</span>
@@ -168,7 +165,7 @@
                                     <td>{{ product.Listing_ID }}</td>
                                     <td>{{ product.Category }}</td>
                                     <td>{{ product.Product_Title }}</td>
-                                    <td>${{ product.Product_Price }}</td>
+                                    <td>{{ product.Product_Price }}</td>
                                     <td>{{ product.Quantity }}</td>
                                     <td>
                                         <span class="badge badge-secondary">Sold Out</span>
@@ -191,60 +188,19 @@
                     </div>
                 </div>
 
-<!--Buyer reviews-->
-<div class="tab-pane fade" id="reviews" role="tabpanel">
-    <div class="card mb-4">
-        <div class="card-body">
-            <h4>Overall Rating:
-                <span class="font-weight-bold">
-                    {{ seller_rating if seller_rating else 'No ratings yet' }}
-                    {% if seller_rating %}/5{% endif %}
-                </span>
-            </h4>
-            <p class="text-muted">Based on {{ reviews|length if reviews else 0 }} reviews</p>
-        </div>
-    </div>
-
-                        <div class="table-responsive">
-                            <table class="table table-striped table-hover">
-                                <thead class="thead-dark">
-                                    <tr>
-                                        <th>Order ID</th>
-                                        <th>Rating</th>
-                                        <th>Review</th>
-                                        <th>Product</th>
-                                        <th>Date</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% if reviews %}
-                                        {% for review in reviews %}
-                                        <tr>
-                                            <td>{{ review.Order_ID }}</td>
-                                            <td>
-                                                <span class="font-weight-bold">{{ review.Rate }}/5</span>
-                                            </td>
-                                            <td>
-                                                {% if review.Review_Desc == "Awesome" %}
-                                                    <span class="badge badge-success review-badge">{{ review.Review_Desc }}</span>
-                                                {% elif review.Review_Desc == "Not Bad" %}
-                                                    <span class="badge badge-warning review-badge">{{ review.Review_Desc }}</span>
-                                                {% else %}
-                                                    <span class="badge badge-danger review-badge">{{ review.Review_Desc }}</span>
-                                                {% endif %}
-                                            </td>
-                                            <td>{{ order_products[review.Order_ID] if review.Order_ID in order_products else "Unknown Product" }}</td>
-                                            <td>{{ order_dates[review.Order_ID] if review.Order_ID in order_dates else "Unknown Date" }}</td>
-                                        </tr>
-                                        {% endfor %}
-                                    {% else %}
-                                        <tr>
-                                            <td colspan="5" class="text-center">You haven't received any reviews yet. Reviews will appear here when buyers leave feedback on your products.</td>
-                                        </tr>
-                                    {% endif %}
-                                </tbody>
-                            </table>
+                <!--Buyer reviews-->
+                <div class="tab-pane fade" id="reviews" role="tabpanel">
+                    <div class="card mb-4">
+                        <div class="card-body">
+                            <h4>Overall Rating:
+                                <span class="font-weight-bold">
+                                    {{ seller_rating if seller_rating else 'No ratings yet' }}
+                                    {% if seller_rating %}/5{% endif %}
+                                </span>
+                            </h4>
+                            <p class="text-muted">Based on {{ reviews|length if reviews else 0 }} reviews</p>
                         </div>
+                    </div>
 
                     <div class="table-responsive">
                         <table class="table table-striped table-hover">
@@ -263,11 +219,7 @@
                                     <tr>
                                         <td>{{ review.Order_ID }}</td>
                                         <td>
-                                            <span class="star-rating">
-                                                {% for i in range(review.Rate) %}★{% endfor %}
-                                                {% for i in range(5 - review.Rate) %}☆{% endfor %}
-                                            </span>
-                                            {{ review.Rate }}/5
+                                            <span class="font-weight-bold">{{ review.Rate }}/5</span>
                                         </td>
                                         <td>
                                             {% if review.Review_Desc == "Awesome" %}
@@ -325,7 +277,7 @@
                                             {{ order_products[order.Order_ID] if order.Order_ID in order_products else "Unknown Product" }}
                                         </td>
                                         <td>{{ order.Quantity }}</td>
-                                        <td>${{ order.Payment }}</td>
+                                        <td>{{ order.Payment }}</td>
                                         <td>
                                             <span class="badge badge-success">Completed</span>
                                         </td>
@@ -384,7 +336,7 @@
 
                     <div class="form-row">
                         <div class="form-group col-md-6">
-                            <label for="product_price">Price ($):</label>
+                            <label for="product_price">Price ($): </label>
                             <input type="number" name="product_price" id="product_price" class="form-control" min="0.01" step="0.01" required>
                         </div>
 
