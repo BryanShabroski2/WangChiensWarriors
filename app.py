@@ -1029,7 +1029,7 @@ def product_listings():
     return render_template('product_listings.html', user=session['user'],active_products=active_products,inactive_products=inactive_products,sold_products=sold_products,categories=categories,reviews=reviews,orders=orders,seller_rating=seller_rating,order_products=order_products,order_dates=order_dates)
 
 
-# Add a new product
+#add new product
 @app.route('/products/add', methods=['POST'])
 def add_product():
     #make sure seller
@@ -1071,6 +1071,41 @@ def add_product():
     return redirect(url_for('product_listings'))
 
 
+#requesting new category
+@app.route('/request_category', methods=['POST'])
+def request_category():
+    #make sure is seller
+    if 'user' not in session or session['user']['role'] != 'seller':
+        return redirect(url_for('mainpage'))
+
+    #get form data
+    user_email = session['user']['email']
+    category_name = request.form['category_name']
+    parent_category = request.form.get('parent_category', '')
+    category_reason = request.form['category_reason']
+
+    #connect
+    connection = sqlite3.connect(db_path)
+    cursor = connection.cursor()
+
+    #create unique id
+    request_id = f"{int(time.time())}{random.randint(1000, 9999)}"
+
+    #create description
+    request_desc = f"Reason: {category_reason}"
+
+    #insert into requests
+    cursor.execute('''
+        INSERT INTO requests 
+        (request_id, sender_email, helpdesk_staff_email, request_type, request_desc, request_status) 
+        VALUES (?, ?, ?, ?, ?, ?)
+    ''', (request_id, user_email, "helpdeskteam@nittybiz.com", "AddCategory", request_desc, "0"))
+
+    connection.commit()
+    connection.close()
+
+    #new category added
+    return redirect(url_for('product_listings', success='New category request submitted and pending approval'))
 
 @app.route('/products/update', methods=['POST'])
 def update_product():
