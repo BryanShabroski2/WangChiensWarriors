@@ -271,16 +271,19 @@ def seller_detail(seller_name):
 
     return render_template('seller.html', seller=seller, reviews=reviews, seller_rating=seller_rating)
 
-
-@app.route('/order_review/<int:listing_id>', methods=['GET', 'POST'])
-def order_review(listing_id):
+@app.route('/secure_checkout', methods=['POST'])
+def secure_checkout():
     # user should be a logged-in buyer before being able to buy a product
     if 'user' not in session or session['user']['role'] != 'buyer':
         return redirect(url_for('login_form'))
 
     user_email = session['user']['email']
+
     connection = sqlite3.connect(db_path)
     cursor = connection.cursor()
+
+    listing_id = request.form.get('listing_id')
+    quantity = request.form.get('quantity')
 
     # product + seller info to be displayed on the page
     cursor.execute('''
@@ -300,6 +303,25 @@ def order_review(listing_id):
     cards = cursor.fetchall()
     connection.close()
 
+    new_card_number = request.form.get('new_card_number')
+    card_type = request.form.get('card_type')
+    expire_month = request.form.get('expire_month')
+    expire_year = request.form.get('expire_year')
+    security_code = request.form.get('security_code')
+
+    # if the user entered a new card, insert into the credit_cards table. also done in place_order
+    if new_card_number and card_type and expire_month and expire_year and security_code:
+        connection = sqlite3.connect(db_path)
+        cursor = connection.cursor()
+
+        cursor.execute('''
+            INSERT INTO Credit_Cards (credit_card_num, card_type, expire_month, expire_year, security_code, Owner_email)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (new_card_number, card_type, expire_month, expire_year, security_code, session['user']['email']))
+
+        connection.commit()
+        connection.close()
+
     product_data = {
         'title': product[0],
         'description': product[1],
@@ -310,7 +332,50 @@ def order_review(listing_id):
         'listing_id': listing_id
     }
 
-    return render_template('order_review.html', product=product_data, cards=cards)
+    price_string = str(product[2]).replace('$', '').replace(',', '').strip()
+    price = float(price_string)
+    total_price = round(price * int(quantity), 2)
+
+    seller_rating = get_seller_rating(product[4])
+
+    return render_template('secure_checkout.html', listing_id=listing_id, product=product_data, cards=cards, quantity=quantity, total_price=total_price, seller_rating=seller_rating, seller_name=product[5])
+
+@app.route('/order_review/<int:listing_id>', methods=['GET'])
+def order_review(listing_id):
+    # user should be a logged-in buyer before being able to buy a product
+    if 'user' not in session or session['user']['role'] != 'buyer':
+        return redirect(url_for('login_form'))
+
+    user_email = session['user']['email']
+    connection = sqlite3.connect(db_path)
+    cursor = connection.cursor()
+
+    # product + seller info to be displayed on the page
+    cursor.execute('''
+        SELECT pl.Product_Title, pl.Product_Description, pl.Product_Price, pl.Quantity, pl.Seller_Email, s.business_name
+        FROM product_listings pl
+        JOIN sellers s ON pl.Seller_Email = s.email
+        WHERE pl.Listing_ID = ?
+    ''', (listing_id,))
+    product = cursor.fetchone()
+    connection.close()
+
+    if not product:
+        return "Product not found", 404
+
+    product_data = {
+        'title': product[0],
+        'description': product[1],
+        'price': product[2],
+        'available': product[3],
+        'seller_email': product[4],
+        'seller_name': product[5],
+        'listing_id': listing_id
+    }
+
+    seller_rating = get_seller_rating(product[4])
+
+    return render_template('order_review.html', product=product_data, seller_rating=seller_rating, seller_name=product[5])
 
 
 def generate_unique_order_id(cursor):
@@ -328,15 +393,18 @@ def place_order():
     buyer_email = session['user']['email']
     listing_id = request.form['listing_id']
     quantity = int(request.form['quantity'])
-    card = request.form['card']
     seller_email = request.form['seller_email']
+
+    card = request.form.get('card')
+    new_card_number = request.form.get('new_card_number')
+    card_type = request.form.get('card_type')
+    expire_month = request.form.get('expire_month')
+    expire_year = request.form.get('expire_year')
+    security_code = request.form.get('security_code')
 
     connection = sqlite3.connect(db_path)
     cursor = connection.cursor()
 
-    order_id = generate_unique_order_id(cursor)
-    now = datetime.datetime.now()
-    date_str = f"{now.year}/{now.month}/{now.day}"
 
     cursor.execute('SELECT Product_Price, Quantity FROM product_listings WHERE Listing_ID = ?', (listing_id,))
     product = cursor.fetchone()
@@ -345,10 +413,20 @@ def place_order():
         connection.close()
         return "Invalid quantity", 400
 
-    price_string = str(product[0]).replace('$', '').strip()
+    price_string = str(product[0]).replace('$', '').replace(',', '').strip()
     price = float(price_string)
     total_payment = round(price * quantity, 2)
     new_quantity = product[1] - quantity
+
+    if new_card_number:
+        cursor.execute('''
+            INSERT INTO Credit_Cards (credit_card_num, card_type, expire_month, expire_year, security_code, Owner_email)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (new_card_number, card_type, expire_month, expire_year, security_code, buyer_email))
+
+    order_id = generate_unique_order_id(cursor)
+    now = datetime.datetime.now()
+    date_str = f"{now.year}/{now.month}/{now.day}"
 
     # adds a new order to the table
     cursor.execute('''
@@ -371,7 +449,59 @@ def place_order():
     connection.commit()
     connection.close()
 
+    return redirect(url_for('order_confirmation', order_id=order_id))
+
+@app.route('/order_confirmation/<int:order_id>')
+def order_confirmation(order_id):
+    if 'user' not in session or session['user']['role'] != 'buyer':
+        return redirect(url_for('login_form'))
+
+    connection = sqlite3.connect(db_path)
+    cursor = connection.cursor()
+
+    cursor.execute('''
+        SELECT p.Product_Title, o.Quantity, o.Payment, o.Seller_Email
+        FROM orders o
+        JOIN product_listings p ON o.Listing_ID = p.Listing_ID
+        WHERE o.Order_ID = ?
+    ''', (order_id,))
+    order = cursor.fetchone()
+    connection.close()
+
+    if not order:
+        return "Order not found", 404
+
+    product = {
+        'title': order[0]
+    }
+    quantity = order[1]
+    total_payment = order[2]
+    seller_email = order[3]
+    seller_rating = get_seller_rating(seller_email)
+
+    return render_template('order_confirmation.html', order_id=order_id, product=product, quantity=quantity, total_payment=total_payment, seller_rating=seller_rating)
+
+@app.route('/submit_review/<int:order_id>', methods=['POST'])
+def submit_review(order_id):
+    if 'user' not in session or session['user']['role'] != 'buyer':
+        return redirect(url_for('login_form'))
+
+    rate = int(request.form['rate'])
+    review_desc = request.form['review_desc']
+
+    connection = sqlite3.connect(db_path)
+    cursor = connection.cursor()
+
+    cursor.execute('''
+        INSERT INTO reviews (Order_ID, Rate, Review_Desc)
+        VALUES (?, ?, ?)
+    ''', (order_id, rate, review_desc))
+
+    connection.commit()
+    connection.close()
+
     return redirect(url_for('mainpage'))
+
 
 @app.route('/success')
 def success():

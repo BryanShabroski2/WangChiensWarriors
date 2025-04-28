@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Secure Checkout</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css">
+</head>
+<body class="bg-light">
+
+<!--Button navigation-->
+<div class="top‑utility bg-white border-bottom">
+    <div class="container d-flex justify-content-end py-1">
+       {% if session.user %}
+           {% if session.user.role == 'helpdesk' %}
+                <a href="{{ url_for('helpdesk_dashboard') }}" class="btn btn-primary btn-sm mr-3">Helpdesk Portal</a>
+            {% elif session.user.role == 'buyer' %}
+                <a href="{{ url_for('mainpage') }}" class="btn btn-outline-success btn-sm mr-3">Shopping Cart</a>
+           {% elif session.user.role == 'seller' %}
+                <a href="{{ url_for('product_listings') }}" class="btn btn-outline-success btn-sm mr-3">Seller Management Dashboard</a>
+           {% endif %}
+
+           <div class="d-flex align-items-center">
+                <a href="{{ url_for('profile') }}" class="mr-3 text-dark">Profile</a>
+                <a href="{{ url_for('logout') }}" class="text-danger mr-3">Logout</a>
+           </div>
+       {% else %}
+           <div class="d-flex align-items-center">
+                <a href="{{ url_for('login_form') }}" class="mr-3 text-dark">Login</a>
+                <a href="{{ url_for('register_form') }}" class="btn btn-primary btn-sm btn-register">Register</a>
+           </div>
+       {% endif %}
+    </div>
+</div>
+
+</nav>
+    <div class="container mt-5">
+         <div class="card">
+         <div class="card-body">
+        <h2>Secure Checkout</h2>
+        <p><strong>Product:</strong> {{ product.title }}</p>
+        <p><strong>Seller:</strong> {{ seller_name }}</p>
+        <p><strong>Seller Rating:</strong> {{ seller_rating }}</p>
+        <p><strong>Description:</strong> {{ product.description }}</p>
+        <p><strong>Selected Quantity:</strong> {{ quantity }}</p>
+        <p><strong>Total Price:</strong> ${{ "%.2f" | format(total_price) }}</p>
+        <form action="{{ url_for('place_order') }}" method="POST">
+            <input type="hidden" name="listing_id" value="{{ product.listing_id }}">
+            <input type="hidden" name="seller_email" value="{{ product.seller_email }}">
+            <input type="hidden" name="quantity" value="{{ quantity }}">
+
+            <div class="form-group">
+                <label>Select Saved Card</label>
+                <select name="card" class="form-control">
+                    {% for card in cards %}
+                        <option value="{{ card[0] }}">{{ card[1] }} - Ending in {{ card[0][-4:] }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <button type="button" class="btn btn-primary" onclick="showNewCardForm()">Use New Card</button>
+            </div>
+
+            <div id="new-card-form" style="display: none;">
+            <div class="form-group">
+                <label for="new_card_number">Credit Card Number</label>
+                <input type="text" class="form-control" name="new_card_number" id="new_card_number" placeholder="1234-5678-9012-3456">
+            </div>
+
+            <div class="form-group">
+                <label for="card_type">Card Type</label>
+                <select class="form-control" name="card_type" id="card_type">
+                    <option value="Master">MasterCard</option>
+                    <option value="Visa">Visa</option>
+                    <option value="American Express">American Express</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="expire_month">Expiration Month</label>
+                <input type="number" class="form-control" name="expire_month" id="expire_month" min="1" max="12" placeholder="MM">
+            </div>
+
+            <div class="form-group">
+                <label for="expire_year">Expiration Year</label>
+                <input type="number" class="form-control" name="expire_year" id="expire_year" placeholder="YYYY">
+            </div>
+
+            <div class="form-group">
+                <label for="security_code">Security Code</label>
+                <input type="text" class="form-control" name="security_code" id="security_code" placeholder="CVV">
+            </div>
+            </div>
+                <script>
+                    function showNewCardForm() {
+                        document.getElementById('new-card-form').style.display = 'block';
+                    }
+                </script>
+            <button type="submit" class="btn btn-success">Place Order</button>
+            <a href="{{ url_for('listing_detail', listing_id=listing_id) }}" class="btn btn-secondary">Back to Listing</a>
+            <a href="{{ url_for('mainpage') }}" class="btn btn-secondary">Back to Main Page</a>
+        </form>
+        </div>
+       </div>
+    </div>
+</body>
+</html>

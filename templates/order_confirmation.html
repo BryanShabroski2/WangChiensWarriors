@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Order Confirmation</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css">
+</head>
+<body class="bg-light">
+<div class="container mt-5">
+    <div class="card">
+        <div class="card-body">
+            <h2>Thank you for your order!</h2>
+            <p><strong>Product:</strong> {{ product.title }}</p>
+            <p><strong>Quantity Ordered:</strong> {{ quantity }}</p>
+            <p><strong>Total Payment:</strong> ${{ "%.2f"|format(total_payment) }}</p>
+
+            <h4>Leave a Review</h4>
+            <form action="{{ url_for('submit_review', order_id=order_id) }}" method="POST">
+                <div class="form-group">
+                    <label for="rate">Rating (1-5):</label>
+                    <select class="form-control" id="rate" name="rate" required>
+                        {% for i in range(1,6) %}
+                        <option value="{{ i }}">{{ i }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="review_desc">Review:</label>
+                    <textarea class="form-control" id="review_desc" name="review_desc" rows="4" required></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary">Submit Review</button>
+            </form>
+
+            <a href="{{ url_for('mainpage') }}" class="btn btn-secondary mt-3">Return to Home</a>
+        </div>
+    </div>
+</div>
+</body>
+</html>

@@ -2,34 +2,76 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Order Review</title>
+    <title>Review Your Order</title>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css">
 </head>
 <body class="bg-light">
+
+<!--Button navigation-->
+<div class="top‑utility bg-white border-bottom">
+    <div class="container d-flex justify-content-end py-1">
+       {% if session.user %}
+           {% if session.user.role == 'helpdesk' %}
+                <a href="{{ url_for('helpdesk_dashboard') }}" class="btn btn-primary btn-sm mr-3">Helpdesk Portal</a>
+            {% elif session.user.role == 'buyer' %}
+                <a href="{{ url_for('mainpage') }}" class="btn btn-outline-success btn-sm mr-3">Shopping Cart</a>
+           {% elif session.user.role == 'seller' %}
+                <a href="{{ url_for('product_listings') }}" class="btn btn-outline-success btn-sm mr-3">Seller Management Dashboard</a>
+           {% endif %}
+
+           <div class="d-flex align-items-center">
+                <a href="{{ url_for('profile') }}" class="mr-3 text-dark">Profile</a>
+                <a href="{{ url_for('logout') }}" class="text-danger mr-3">Logout</a>
+           </div>
+       {% else %}
+           <div class="d-flex align-items-center">
+                <a href="{{ url_for('login_form') }}" class="mr-3 text-dark">Login</a>
+                <a href="{{ url_for('register_form') }}" class="btn btn-primary btn-sm btn-register">Register</a>
+           </div>
+       {% endif %}
+    </div>
+</div>
+
+<!-- Main navbar -->
+<nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
+    <div class="container">
+        <a class="navbar-brand font-weight-bold" href="{{ url_for('mainpage') }}">NittanyBusiness</a>
+
+        <form class="form-inline mx-lg-4 flex-grow-1" action="{{ url_for('search') }}" method="GET">
+            <input class="form-control flex-grow-1 w-75" type="search" placeholder="Search for anything" name="q">
+            <button class="btn btn-outline-primary ml-2" type="submit">Search</button>
+        </form>
+
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#miniNav" aria-controls="miniNav" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+    </div>
+
+
+</nav>
     <div class="container mt-5">
+         <div class="card">
+         <div class="card-body">
         <h2>Order Review</h2>
         <p><strong>Product:</strong> {{ product.title }}</p>
+        <p><strong>Seller:</strong> {{ seller_name }}</p>
+        <p><strong>Seller Rating:</strong> {{ seller_rating }}</p>
         <p><strong>Description:</strong> {{ product.description }}</p>
-        <p><strong>Unit Price:</strong> {{ product.price }}</p>
+        <p><strong>Price:</strong> {{ product.price }}</p>
         <p><strong>Available Quantity:</strong> {{ product.available }}</p>
-        <form action="{{ url_for('place_order') }}" method="POST">
+        <form action="{{ url_for('secure_checkout') }}" method="POST">
             <input type="hidden" name="listing_id" value="{{ product.listing_id }}">
             <input type="hidden" name="seller_email" value="{{ product.seller_email }}">
             <div class="form-group">
                 <label for="quantity">Quantity to Buy</label>
-                <input type="number" name="quantity" class="form-control" min="1" max="{{ product.available }}" required>
+                <input type="number" id="quantity" name="quantity" class="form-control" min="1" max="{{ product.available }}" required>
             </div>
-            <div class="form-group">
-                <label for="card">Select Card</label>
-                <select name="card" class="form-control" required>
-                    {% for card in cards %}
-                        <option value="{{ card[0] }}">{{ card[1] }} - Ending in {{ card[0][-4:] }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <button type="submit" class="btn btn-success">Place Order</button>
+            <button type="submit" class="btn btn-success">Proceed to Secure Checkout</button>
+            <a href="{{ url_for('listing_detail', listing_id=product.listing_id) }}" class="btn btn-secondary">Back to Listing</a>
             <a href="{{ url_for('mainpage') }}" class="btn btn-secondary">Back to Main Page</a>
         </form>
+        </div>
+       </div>
     </div>
 </body>
 </html>
