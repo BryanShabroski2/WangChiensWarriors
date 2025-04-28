@@ -19,6 +19,29 @@
         .pending {
             background-color: #fff3e0;
         }
+        /* Additional styling for better UI */
+        .table-hover tbody tr:hover {
+            background-color: #f5f5f5;
+        }
+        .status-badge {
+            font-weight: bold;
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+        .status-pending {
+            background-color: #fff3e0;
+            color: #e65100;
+        }
+        .status-completed {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+        }
+        .request-desc {
+            max-width: 300px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
     </style>
 </head>
 <body>
@@ -64,17 +87,25 @@
                             </thead>
                             <tbody>
                                 {% for request in unassigned_requests %}
-                                <tr class="{{ 'completed' if request.request_status == 'COMPLETED' else 'pending' }}">
+                                <tr class="{{ 'completed' if request.request_status == '1' else 'pending' }}">
                                     <td>{{ request.request_id }}</td>
                                     <td>{{ request.sender_email }}</td>
                                     <td>{{ request.request_type }}</td>
-                                    <td>{{ request.request_desc }}</td>
-                                    <td>{{ request.request_status }}</td>
+                                    <td class="request-desc">{{ request.request_desc }}</td>
                                     <td>
+                                        <span class="status-badge {{ 'status-completed' if request.request_status == '1' else 'status-pending' }}">
+                                            {% if request.request_status == '0' %}PENDING{% elif request.request_status == '1' %}COMPLETED{% else %}{{ request.request_status }}{% endif %}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% if request.request_status != '1' %}
                                         <form action="{{ url_for('claim_request') }}" method="POST" class="d-inline">
                                             <input type="hidden" name="request_id" value="{{ request.request_id }}">
                                             <button type="submit" class="btn btn-primary btn-sm">Claim</button>
                                         </form>
+                                        {% else %}
+                                        <span class="badge badge-success">Completed</span>
+                                        {% endif %}
                                     </td>
                                 </tr>
                                 {% else %}
@@ -103,18 +134,22 @@
                             </thead>
                             <tbody>
                                 {% for request in assigned_requests %}
-                                <tr class="{{ 'completed' if request.request_status == 'COMPLETED' else 'pending' }}">
+                                <tr class="{{ 'completed' if request.request_status == '1' else 'pending' }}">
                                     <td>{{ request.request_id }}</td>
                                     <td>{{ request.sender_email }}</td>
                                     <td>{{ request.request_type }}</td>
-                                    <td>{{ request.request_desc }}</td>
-                                    <td>{{ request.request_status }}</td>
+                                    <td class="request-desc">{{ request.request_desc }}</td>
                                     <td>
-                                        {% if request.request_type == 'AddCategory' and request.request_status != 'COMPLETED' %}
+                                        <span class="status-badge {{ 'status-completed' if request.request_status == '1' else 'status-pending' }}">
+                                            {% if request.request_status == '0' %}PENDING{% elif request.request_status == '1' %}COMPLETED{% else %}{{ request.request_status }}{% endif %}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% if request.request_type == 'AddCategory' and request.request_status != '1' %}
                                             <button type="button" class="btn btn-primary btn-sm" data-toggle="modal" data-target="#addCategoryModal" data-requestid="{{ request.request_id }}">
                                                 Process
                                             </button>
-                                        {% elif request.request_status != 'COMPLETED' %}
+                                        {% elif request.request_status != '1' %}
                                             <form action="{{ url_for('complete_request') }}" method="POST" class="d-inline">
                                                 <input type="hidden" name="request_id" value="{{ request.request_id }}">
                                                 <button type="submit" class="btn btn-success btn-sm">Complete</button>
@@ -196,7 +231,7 @@
 
 <script>
     $(document).ready(function() {
-        //Pass request to id modal
+        // Pass request to id modal
         $('#addCategoryModal').on('show.bs.modal', function (event) {
             var button = $(event.relatedTarget);
             var requestId = button.data('requestid');
@@ -204,7 +239,7 @@
             modal.find('#modal_request_id').val(requestId);
         });
 
-        //Toggle parent
+        // Toggle parent category selection
         $('#is_parent').change(function() {
             if(this.checked) {
                 $('#new_parent_container').show();

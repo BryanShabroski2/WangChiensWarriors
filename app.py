@@ -724,59 +724,62 @@ def profile_update():
 
     return redirect(url_for('profile', success='Profile updated successfully'))
 
-#for requesting email change
+#requesting email change
 @app.route('/email/change', methods=['POST'])
 def email_change_request():
-    #make sure user is logged in
+    #make sure user is loged in
     if 'user' not in session:
         return redirect(url_for('mainpage'))
 
+    #get form data
     user_email = session['user']['email']
     new_email = request.form['new_email']
-    reason = "need my email changed"
+    reason = 'Email change requested'
 
-    #connect to database
+    #Connect
     connection = sqlite3.connect(db_path)
     cursor = connection.cursor()
 
-    #Create a unique ID for the Email change request
+    #create unique request
     request_id = f"{int(time.time())}{random.randint(1000, 9999)}"
 
-    #insert into requests table
+    #insert into request
     cursor.execute('''
         INSERT INTO requests 
         (request_id, sender_email, helpdesk_staff_email, request_type, request_desc, request_status) 
         VALUES (?, ?, ?, ?, ?, ?)
-    ''', (request_id, user_email, None, "ChangeID", f"New email: {new_email}\nReason: please change email", "PENDING"))
+    ''', (request_id, user_email, "helpdeskteam@nittybiz.com", "ChangeID", f"New email: {new_email}\nReason: {reason}", "0"))
 
+    #close
     connection.commit()
     connection.close()
 
+    #go back to profile
     return redirect(url_for('profile', success='Email change request submitted and pending approval'))
 
 
-#Helpdesk dashboard accessible by helpdesk staff
+# Updated helpdesk_dashboard function to use numeric status values
 @app.route('/helpdesk')
 def helpdesk_dashboard():
-    #Make sure user in session is helpdesk
+    #make sure user in session is helpdesk
     if 'user' not in session or session['user']['role'] != 'helpdesk':
         return redirect(url_for('mainpage'))
 
-    #Access unassigned requests by name
+    #access requests
     connection = sqlite3.connect(db_path)
     connection.row_factory = sqlite3.Row
     cursor = connection.cursor()
 
-    #Gather unassigned requests
+    #get unassigned requests
     cursor.execute('''
         SELECT * FROM requests
-        WHERE (helpdesk_staff_email IS NULL OR helpdesk_staff_email = 'helpdeskteam@nittybiz.com')
-        AND request_status != 'COMPLETED'
+        WHERE helpdesk_staff_email = 'helpdeskteam@nittybiz.com'
+        AND request_status = '0'
         ORDER BY request_id
     ''')
     unassigned_requests = cursor.fetchall()
 
-    #Get requests assigned to the current user
+    #get requests assigned to current user
     cursor.execute('''
         SELECT * FROM requests
         WHERE helpdesk_staff_email = ?
@@ -784,7 +787,7 @@ def helpdesk_dashboard():
     ''', (session['user']['email'],))
     assigned_requests = cursor.fetchall()
 
-    #Get parent categories for drop down
+    #get parent categories if adding new category
     cursor.execute('''
         SELECT DISTINCT parent_category FROM categories
         WHERE parent_category IS NOT NULL
@@ -794,31 +797,34 @@ def helpdesk_dashboard():
 
     connection.close()
 
+    return render_template('helpdesk.html',
+                          user=session['user'],
+                          unassigned_requests=unassigned_requests,
+                          assigned_requests=assigned_requests,
+                          parent_categories=parent_categories)
 
-    return render_template('helpdesk.html',user=session['user'],unassigned_requests=unassigned_requests,assigned_requests=assigned_requests,parent_categories=parent_categories)
-
-
-
+#claim requests
 @app.route('/helpdesk/claim', methods=['POST'])
 def claim_request():
     #make sure user in session
     if 'user' not in session or session['user']['role'] != 'helpdesk':
         return redirect(url_for('mainpage'))
 
-    #Get request id
+    #get request id
     request_id = request.form['request_id']
 
-    #Connect
+    #connect to db
     connection = sqlite3.connect(db_path)
     cursor = connection.cursor()
 
-    #Update requests to be claimed by helpdesk
+    #update request when claimed
     cursor.execute('''
-            UPDATE requests
-            SET helpdesk_staff_email = ?
-            WHERE request_id = ?
-            AND request_status = '0'
-        ''', (session['user']['email'], request_id))
+        UPDATE requests
+        SET helpdesk_staff_email = ?
+        WHERE request_id = ?
+        AND helpdesk_staff_email = 'helpdeskteam@nittybiz.com'
+        AND request_status = '0'
+    ''', (session['user']['email'], request_id))
 
     #close
     connection.commit()
@@ -827,11 +833,10 @@ def claim_request():
     #redirect
     return redirect(url_for('helpdesk_dashboard', success=f'Request {request_id} has been assigned to you.'))
 
-
-
+#for completed actions
 @app.route('/helpdesk/complete', methods=['POST'])
 def complete_request():
-    #make sure in session
+    #make sure user in session
     if 'user' not in session or session['user']['role'] != 'helpdesk':
         return redirect(url_for('mainpage'))
 
@@ -842,27 +847,27 @@ def complete_request():
     connection = sqlite3.connect(db_path)
     cursor = connection.cursor()
 
-    #Mark as completed
+    #mark as completed
     cursor.execute('''
         UPDATE requests
         SET request_status = '1'
         WHERE request_id = ? AND helpdesk_staff_email = ?
     ''', (request_id, session['user']['email']))
 
-    #Close
+    #commit and close
     connection.commit()
     connection.close()
 
     return redirect(url_for('helpdesk_dashboard', success=f'Request {request_id} has been marked as completed.'))
 
-
+#Adding category
 @app.route('/helpdesk/add_category', methods=['POST'])
 def add_category():
-    #make sure in sessioon
+    #make sure in session
     if 'user' not in session or session['user']['role'] != 'helpdesk':
         return redirect(url_for('mainpage'))
 
-    #get id, category, and figure out if is parent (checkbox) all from form
+    #get id, category name, and if checkbox is there we know it is a parent
     request_id = request.form['request_id']
     category_name = request.form['category_name']
     is_parent = 'is_parent' in request.form
@@ -870,7 +875,7 @@ def add_category():
     connection = sqlite3.connect(db_path)
     cursor = connection.cursor()
 
-    #Category creation
+    #category creation logic
     if is_parent:
         new_parent_name = request.form['new_parent_name']
 
@@ -892,14 +897,14 @@ def add_category():
             VALUES (?, ?)
         ''', (parent_category, category_name))
 
-    #Complete request
+    #complete request
     cursor.execute('''
         UPDATE requests
         SET request_status = '1'
         WHERE request_id = ? AND helpdesk_staff_email = ?
     ''', (request_id, session['user']['email']))
 
-    #commit and close
+    #commit close
     connection.commit()
     connection.close()
 
