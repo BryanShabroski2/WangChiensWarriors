@@ -583,7 +583,7 @@ def login():
 def register_form():
     return render_template('register.html')
 
-# User registration process form
+#registration form
 @app.route('/register', methods=['POST'])
 def register():
     #Get email password and role from form
@@ -613,6 +613,7 @@ def register():
         (email, hashed_password)
     )
 
+    #role logic
     #Based on role we insert that form information into the database
     if role == 'buyer':
         business_name = request.form['business_name']
@@ -658,21 +659,25 @@ def register():
 def logout():
     session.pop('user', None)
     return redirect(url_for('mainpage'))
+
+
 @app.route('/profile', methods=['GET'])
 def profile():
+    #make sure user in session
     if 'user' not in session:
         return redirect(url_for('mainpage'))
 
-    # Get user data
+    #get user data
     user_email = session['user']['email']
     role = session['user']['role']
 
+    #connect
     connection = sqlite3.connect(db_path)
     cursor = connection.cursor()
 
     user_data = {}
     if role == 'buyer':
-        # Only fetch the specific fields we need
+        #fetch buyer fields
         cursor.execute('SELECT business_name, buyer_address_id FROM buyers WHERE email = ?', (user_email,))
         result = cursor.fetchone()
         if result:
@@ -681,7 +686,7 @@ def profile():
                 'buyer_address_id': result[1]
             }
     elif role == 'seller':
-        # Only fetch the specific fields we need
+        #fetch seller fields
         cursor.execute('SELECT business_name, Business_Address_ID, bank_routing_number, bank_account_number, balance FROM sellers WHERE email = ?', (user_email,))
         result = cursor.fetchone()
         if result:
@@ -693,7 +698,7 @@ def profile():
                 'balance': result[4]
             }
     elif role == 'helpdesk':
-        #Get our user data f
+        #fetch helpdesk
         cursor.execute('SELECT Position FROM helpdesk WHERE email = ?', (user_email,))
         result = cursor.fetchone()
         if result:
@@ -706,7 +711,7 @@ def profile():
     return render_template('profile.html', user=session['user'], user_data=user_data)
 
 
-
+#for updating profile
 @app.route('/profile/update', methods=['POST'])
 def profile_update():
     #Make sure user is loggedin
@@ -793,7 +798,7 @@ def email_change_request():
     return redirect(url_for('profile', success='Email change request submitted and pending approval'))
 
 
-# Updated helpdesk_dashboard function to use numeric status values
+#helpdesk_dashbord, for helpdesk to claim requests, and complete them
 @app.route('/helpdesk')
 def helpdesk_dashboard():
     #make sure user in session is helpdesk
@@ -960,7 +965,7 @@ def product_listings():
     connection.row_factory = sqlite3.Row
     cursor = connection.cursor()
 
-    #listings
+    #listings (active)
     cursor.execute('''
         SELECT * FROM product_listings
         WHERE Seller_Email = ? AND Status = '1'
@@ -968,6 +973,7 @@ def product_listings():
     ''', (user_email,))
     active_products = cursor.fetchall()
 
+    #inactive listings
     cursor.execute('''
         SELECT * FROM product_listings
         WHERE Seller_Email = ? AND Status = '0'
@@ -975,6 +981,7 @@ def product_listings():
     ''', (user_email,))
     inactive_products = cursor.fetchall()
 
+    #Sold out
     cursor.execute('''
         SELECT * FROM product_listings
         WHERE Seller_Email = ? AND Status = '2'
@@ -1012,7 +1019,7 @@ def product_listings():
     #get orders
     orders = cursor.fetchall()
 
-    #get  rating
+    #get rating
     seller_rating = get_seller_rating(user_email)
 
     #Dictionaries to map the order id with date and product
@@ -1047,8 +1054,6 @@ def add_product():
     product_price = request.form['product_price']
     quantity = request.form['quantity']
 
-    #TODO: FIX
-    #product_price = '${product_price}'
 
     #connect
     connection = sqlite3.connect(db_path)
@@ -1081,7 +1086,7 @@ def request_category():
     #get form data
     user_email = session['user']['email']
     category_name = request.form['category_name']
-    parent_category = request.form.get('parent_category', '')
+    parent_category = request.form.get('parent_category', 'Root')
     category_reason = request.form['category_reason']
 
     #connect
@@ -1092,7 +1097,7 @@ def request_category():
     request_id = f"{int(time.time())}{random.randint(1000, 9999)}"
 
     #create description
-    request_desc = f"Reason: {category_reason}"
+    request_desc = f"Parent: {parent_category} Category: {category_name} Reason: {category_reason}"
 
     #insert into requests
     cursor.execute('''
@@ -1199,10 +1204,12 @@ def activate_product():
     connection = sqlite3.connect(db_path)
     cursor = connection.cursor()
 
+    #get product information
     cursor.execute('SELECT Product_Title, Quantity FROM product_listings WHERE Listing_ID = ? AND Seller_Email = ?',
                    (listing_id, user_email))
     result = cursor.fetchone()
 
+    #change status as long as quantity is above 0
     if result:
         product_title, quantity = result
 
@@ -1226,9 +1233,11 @@ def activate_product():
 
 @app.route('/products/restock', methods=['POST'])
 def restock_product():
+    #make sure user is in session
     if 'user' not in session or session['user']['role'] != 'seller':
         return redirect(url_for('mainpage'))
 
+    #Get from form and session
     user_email = session['user']['email']
     listing_id = request.form['listing_id']
     quantity = request.form['quantity']
@@ -1236,10 +1245,12 @@ def restock_product():
     connection = sqlite3.connect(db_path)
     cursor = connection.cursor()
 
+    #Get product info
     cursor.execute('SELECT Product_Title FROM product_listings WHERE Listing_ID = ? AND Seller_Email = ?',
                    (listing_id, user_email))
     result = cursor.fetchone()
 
+    #Update and restock listing accordingly
     if result:
         product_title = result[0]
 
