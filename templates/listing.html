@@ -52,6 +52,17 @@
                 <p><strong>Available Quantity:</strong> {{ product.quantity }}</p>
                 <a href="{{ url_for('order_review', listing_id=product['listing_id']) }}" class="btn btn-success">Buy Now</a>
                 <a href="{{ url_for('mainpage') }}" class="btn btn-secondary">Back to Main Page</a>
+
+
+                <!-- Add to cart -->
+                <form action="{{ url_for('add_to_cart') }}" method="POST" class="form-inline">
+                    <input type="hidden" name="product_id" value="{{ product.listing_id }}">
+                    <div class="form-group mr-2">
+                        <label for="quantity" class="mr-2">Quantity:</label>
+                        <input type="number" class="form-control" id="quantity" name="quantity" value="1" min="1" max="{{ product.quantity }}">
+                    </div>
+                    <button type="submit" class="btn btn-primary">Add to Cart</button>
+                </form>
             </div>
         </div>
     </div>

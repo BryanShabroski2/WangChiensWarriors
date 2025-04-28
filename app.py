@@ -26,6 +26,18 @@ def get_user_role(email):
     connection.close()
     return None  # fallback if role not found
 
+def convert_money_to_float(money_str):
+    cleaned_str = money_str.replace('$', '').replace(',', '')
+    return float(cleaned_str)
+
+def convert_float_to_money(value):
+    return "${:,.2f}".format(value)
+
+def get_unit_price_str(total_price: str, quantity: int) -> str:
+    total_price_float = convert_money_to_float(total_price)
+    unit_price = total_price_float / quantity
+    return convert_float_to_money(unit_price)
+
 def get_children_categories(cursor, parent_category):
     cursor.execute('''
             SELECT category_name FROM categories
@@ -46,8 +58,6 @@ def dfs_category(start_category):
     dfs(start_category)
     connection.close()
     return result
-
-
 
 def get_user_business_name(email, role):
     connection = sqlite3.connect(db_path)
@@ -157,8 +167,6 @@ def mainpage(category="All", subcategory="", subsubcategory=""):
         count_query += ' AND ' + ' AND '.join(filters)
         data_query += ' AND ' + ' AND '.join(filters)
 
-    print("FINAL COUNT QUERY:\n" + count_query)
-    print("COUNT PARAMS: " + str(params))
     cursor.execute(count_query, tuple(params))
     total_listings = cursor.fetchone()[0]
     total_pages = (total_listings + PAGE_SIZE - 1) // PAGE_SIZE
@@ -190,8 +198,9 @@ def mainpage(category="All", subcategory="", subsubcategory=""):
     for listing in listings:
         product_title, product_name, business_name, listing_id, quantity, price, seller_email = listing
         seller_rating = get_seller_rating(seller_email)
+        unit_price_str = get_unit_price_str(price, quantity)
         enhanced_listings.append(
-            (product_title, product_name, business_name, listing_id, quantity, price, seller_email, seller_rating))
+            (product_title, product_name, business_name, listing_id, quantity, unit_price_str, seller_email, seller_rating))
 
     return render_template('mainpage.html',
                            listings=enhanced_listings,
@@ -220,12 +229,14 @@ def listing_detail(listing_id):
     result = cursor.fetchone()
     connection.close()
 
+    unit_price_str = get_unit_price_str(result[3], result[4])
+
     if result:
         product = {
             'title': result[0],
             'name': result[1],
             'description': result[2],
-            'price': result[3],
+            'price': unit_price_str,
             'quantity': result[4],
             'seller_name': result[5],
             'seller_email': result[6],
@@ -236,6 +247,12 @@ def listing_detail(listing_id):
 
     else:
         return "Product not found", 404
+
+@app.route('/add_to_cart', methods=['POST'])
+def add_to_cart():
+    if 'user' not in session:
+        return redirect(url_for('login_form'))
+
 
 
 @app.route('/seller/<seller_name>')
