@@ -32,6 +32,7 @@
     </div>
 </div>
 
+<!-- checkout card container -->
 </nav>
     <div class="container mt-5">
          <div class="card">
@@ -43,6 +44,8 @@
         <p><strong>Description:</strong> {{ product.description }}</p>
         <p><strong>Selected Quantity:</strong> {{ quantity }}</p>
         <p><strong>Total Price:</strong> ${{ "%.2f" | format(total_price) }}</p>
+
+        <!-- form for submitting the final order. user can either select a previously saved card or enter new card -->
         <form action="{{ url_for('place_order') }}" method="POST">
             <input type="hidden" name="listing_id" value="{{ product.listing_id }}">
             <input type="hidden" name="seller_email" value="{{ product.seller_email }}">
@@ -57,6 +60,7 @@
                 </select>
             </div>
 
+            <!-- form to enter a new card is closed until the user clicks on the button to open the form-->
             <div class="form-group">
                 <button type="button" class="btn btn-primary" onclick="showNewCardForm()">Use New Card</button>
             </div>
