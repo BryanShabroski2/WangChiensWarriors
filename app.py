@@ -26,11 +26,11 @@ def get_user_role(email):
     connection.close()
     return None  # fallback if role not found
 
-def convert_money_to_float(money_str):
+def convert_money_to_float(money_str: str) -> float:
     cleaned_str = money_str.replace('$', '').replace(',', '')
     return float(cleaned_str)
 
-def convert_float_to_money(value):
+def convert_float_to_money(value: float) -> str:
     return "${:,.2f}".format(value)
 
 def get_unit_price_str(total_price: str, quantity: int) -> str:
@@ -252,6 +252,60 @@ def listing_detail(listing_id):
 def add_to_cart():
     if 'user' not in session:
         return redirect(url_for('login_form'))
+
+    product_id = int(request.form['product_id'])
+    quantity = int(request.form['quantity'])
+
+    if not session.get('cart'):
+        session['cart'] = {product_id: quantity}
+    else:
+        session['cart'][product_id] = quantity
+
+    return redirect(url_for('mainpage'))
+
+@app.route('/shoppingcart')
+def shoppingcart():
+    if 'user' not in session:
+        return redirect(url_for('login_form'))
+
+    cart = session.get('cart', {})
+
+    cart_items = []
+
+    connection = sqlite3.connect(db_path)  # <- replace with your real database path
+    cursor = connection.cursor()
+
+    for product_id, quantity_in_cart in cart.items():
+        cursor.execute('''
+                       SELECT Product_Title, Product_Name, Product_Price, Quantity
+                       FROM product_listings
+                       WHERE listing_id = ?
+                       ''', (product_id,))
+        row = cursor.fetchone()
+
+        if row:
+            product_title, product_name, total_price_str, available_stock = row
+
+            unit_price = get_unit_price_str(total_price_str, available_stock)
+            cart_total_price = convert_float_to_money(convert_money_to_float(unit_price) * int(quantity_in_cart))
+
+            cart_items.append({
+                'id': product_id,
+                'title': f"{product_title} - {product_name}",
+                'price': unit_price,
+                'total_price': cart_total_price,
+                'quantity': quantity_in_cart,
+                'stock': available_stock
+            })
+
+    connection.close()
+
+    return render_template('shoppingcart.html', cart_items=cart_items)
+
+
+
+
+
 
 
 
