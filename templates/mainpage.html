@@ -39,8 +39,6 @@
        {% if session.user %}
            {% if session.user.role == 'helpdesk' %}
                 <a href="{{ url_for('helpdesk_dashboard') }}" class="btn btn-primary btn-sm mr-3">Helpdesk Portal</a>
-            {% elif session.user.role == 'buyer' %}
-                <a href="{{ url_for('mainpage') }}" class="btn btn-outline-success btn-sm mr-3">Shopping Cart</a>
            {% elif session.user.role == 'seller' %}
                 <a href="{{ url_for('product_listings') }}" class="btn btn-outline-success btn-sm mr-3">Seller Management Dashboard</a>
            {% endif %}
