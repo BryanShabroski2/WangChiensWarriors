@@ -163,6 +163,7 @@
 <main class="container my-4">
 
     {% if user %}
+        {% if category == "All" or not category %}
         <div class="alert alert-info">
             <h4>
                 Welcome,
@@ -173,6 +174,7 @@
                 {% endif %}
             </h4>
         </div>
+        {% endif %}
 
         {% if user.role == 'buyer' %}
             <div class="mb-4">
