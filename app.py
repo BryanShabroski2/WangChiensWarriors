@@ -4,6 +4,8 @@ from werkzeug.security import check_password_hash
 from werkzeug.security import generate_password_hash
 import datetime
 import random
+import time
+import random
 app = Flask(__name__)
 app.secret_key = 'dev'
 db_path = 'WCW.sqlite'
@@ -47,8 +49,7 @@ def dfs_category(start_category):
     connection.close()
     return result
 
-
-
+# if user is a buyer or seller, look up their business name in their respective table
 def get_user_business_name(email, role):
     connection = sqlite3.connect(db_path)
     cursor = connection.cursor()
@@ -74,12 +75,14 @@ def get_user_business_name(email, role):
         return None
 
     connection.close()
-    return None  # fallback if role is unknown
+    return None
 
+# gets the seller's rating from seller email
 def get_seller_rating(seller_email):
     connection = sqlite3.connect(db_path)
     cursor = connection.cursor()
 
+    # calculates and selects the average rating for the given seller by joining reviews and orders
     cursor.execute('''
         SELECT AVG(Rate)
         FROM reviews
@@ -89,6 +92,7 @@ def get_seller_rating(seller_email):
     result = cursor.fetchone()
     connection.close()
 
+    # if there is at least 1 rating, round the average to 2 decimal places
     if result and result[0]:
         return round(result[0], 2)
     else:
@@ -101,15 +105,18 @@ def get_seller_rating(seller_email):
 def mainpage(category="All", subcategory="", subsubcategory=""):
     user = session.get('user')
 
+    # Gets the requested page from the request args
     page = request.args.get('page', 1, type=int)
+
+    # The number of listings per page
     PAGE_SIZE = 60
+
 
     connection = sqlite3.connect(db_path)
     cursor = connection.cursor()
 
     # To form queries, we create base SQL queries and append onto them depending on
     # the search filters and things like category and subcategory
-
     count_query = '''
         SELECT count(*)
         FROM product_listings p
@@ -132,6 +139,9 @@ def mainpage(category="All", subcategory="", subsubcategory=""):
           AND p.Category = c.category_name
     '''
 
+    # filters refer the string clauses we add to build the query
+    # params refer to the actual variables we are inserting into the query
+    # where params[i] corresponds to the ith question mark in the query
     filters = []
     params = []
     parent_category = ""
@@ -142,6 +152,9 @@ def mainpage(category="All", subcategory="", subsubcategory=""):
         parent_category = subsubcategory
     elif subcategory:
         all_descendants = dfs_category(subcategory)
+        # Creates a SQL check where the category must be in the list of all descendants
+        # (by doing a DFS traversal of children nodes)
+        # This makes sure selecting a parent category displays all products
         filters.append('p.Category IN (' + ','.join(['?'] * len(all_descendants)) + ')')
         params.extend(all_descendants)
         parent_category = subcategory
@@ -154,15 +167,15 @@ def mainpage(category="All", subcategory="", subsubcategory=""):
         parent_category = "Root"
 
     if filters:
+        # join our filters with ANDs
         count_query += ' AND ' + ' AND '.join(filters)
         data_query += ' AND ' + ' AND '.join(filters)
 
-    print("FINAL COUNT QUERY:\n" + count_query)
-    print("COUNT PARAMS: " + str(params))
     cursor.execute(count_query, tuple(params))
     total_listings = cursor.fetchone()[0]
     total_pages = (total_listings + PAGE_SIZE - 1) // PAGE_SIZE
 
+    # Make sure pages don't go out of bounds
     if page > total_pages:
         page = total_pages
     elif page < 1:
@@ -173,8 +186,6 @@ def mainpage(category="All", subcategory="", subsubcategory=""):
     data_query += ' ORDER BY p.Listing_ID LIMIT ? OFFSET ?'
     data_params = params + [PAGE_SIZE, offset]
 
-    print("FINAL DATA QUERY:\n" + data_query)
-    print("DATA PARAMS: " + str(data_params))
     cursor.execute(data_query, tuple(data_params))
     listings = cursor.fetchall()
 
@@ -186,12 +197,12 @@ def mainpage(category="All", subcategory="", subsubcategory=""):
     ''', (parent_category,))
     categories = cursor.fetchall()
 
+    # each listing now incorporates all details about the product listing
     enhanced_listings = []
     for listing in listings:
         product_title, product_name, business_name, listing_id, quantity, price, seller_email = listing
         seller_rating = get_seller_rating(seller_email)
-        enhanced_listings.append(
-            (product_title, product_name, business_name, listing_id, quantity, price, seller_email, seller_rating))
+        enhanced_listings.append((product_title, product_name, business_name, listing_id, quantity, price, seller_email, seller_rating))
 
     return render_template('mainpage.html',
                            listings=enhanced_listings,
@@ -204,6 +215,7 @@ def mainpage(category="All", subcategory="", subsubcategory=""):
                            user=user
                            )
 
+# page for the listing details
 @app.route('/listing/<int:listing_id>', methods=['GET'])
 def listing_detail(listing_id):
     connection = sqlite3.connect(db_path)
@@ -220,6 +232,7 @@ def listing_detail(listing_id):
     result = cursor.fetchone()
     connection.close()
 
+    # if a matching product was found, map the query result into structured product dictionary
     if result:
         product = {
             'title': result[0],
@@ -231,18 +244,20 @@ def listing_detail(listing_id):
             'seller_email': result[6],
             'listing_id': listing_id
         }
+        # calculate seller rating which needs to be displayed on the detailed product listing page
         seller_rating = get_seller_rating(result[6])
         return render_template('listing.html', product=product, seller_rating=seller_rating)
 
     else:
         return "Product not found", 404
 
-
+# page for detailed seller information
 @app.route('/seller/<seller_name>')
 def seller_detail(seller_name):
     connection = sqlite3.connect(db_path)
     cursor = connection.cursor()
 
+    # gets seller's business name and email from seller table based on seller's business name
     cursor.execute('''
         SELECT business_name, email
         FROM sellers
@@ -250,11 +265,13 @@ def seller_detail(seller_name):
     ''', (seller_name,))
     seller = cursor.fetchone()
 
+    # if no seller exists with that business name and email, return 404 not found
     if not seller:
         connection.close()
         return "Seller not found", 404
     seller_rating = get_seller_rating(seller[1])
 
+    # retrieve all rating and descriptions for this seller by joining reviews and orders where order IDs match
     cursor.execute('''
         SELECT r.Rate, r.Review_Desc
         FROM reviews r
@@ -271,17 +288,20 @@ def seller_detail(seller_name):
 
     return render_template('seller.html', seller=seller, reviews=reviews, seller_rating=seller_rating)
 
+# page for secure checkout. user is taken here after confirming what they want to buy
 @app.route('/secure_checkout', methods=['POST'])
 def secure_checkout():
     # user should be a logged-in buyer before being able to buy a product
     if 'user' not in session or session['user']['role'] != 'buyer':
         return redirect(url_for('login_form'))
 
+    # from session data, retrieve buyer's email
     user_email = session['user']['email']
 
     connection = sqlite3.connect(db_path)
     cursor = connection.cursor()
 
+    # get the listing ID and quantity from the form submission
     listing_id = request.form.get('listing_id')
     quantity = request.form.get('quantity')
 
@@ -303,13 +323,14 @@ def secure_checkout():
     cards = cursor.fetchall()
     connection.close()
 
+    # if the user enters a new card, collect all new card details if provided via the form
     new_card_number = request.form.get('new_card_number')
     card_type = request.form.get('card_type')
     expire_month = request.form.get('expire_month')
     expire_year = request.form.get('expire_year')
     security_code = request.form.get('security_code')
 
-    # if the user entered a new card, insert into the credit_cards table. also done in place_order
+    # if the user entered all info for a new card, insert into the credit_cards table. also done in place_order
     if new_card_number and card_type and expire_month and expire_year and security_code:
         connection = sqlite3.connect(db_path)
         cursor = connection.cursor()
@@ -322,6 +343,7 @@ def secure_checkout():
         connection.commit()
         connection.close()
 
+    # product data dictionary for rendering in the html
     product_data = {
         'title': product[0],
         'description': product[1],
@@ -332,14 +354,17 @@ def secure_checkout():
         'listing_id': listing_id
     }
 
+    # converts price string to float and calculates total price based on quantity
     price_string = str(product[2]).replace('$', '').replace(',', '').strip()
     price = float(price_string)
     total_price = round(price * int(quantity), 2)
 
+    # get seller's rating from email for display on checkout page
     seller_rating = get_seller_rating(product[4])
 
     return render_template('secure_checkout.html', listing_id=listing_id, product=product_data, cards=cards, quantity=quantity, total_price=total_price, seller_rating=seller_rating, seller_name=product[5])
 
+# page for user to confirm what they want to buy
 @app.route('/order_review/<int:listing_id>', methods=['GET'])
 def order_review(listing_id):
     # user should be a logged-in buyer before being able to buy a product
@@ -363,6 +388,7 @@ def order_review(listing_id):
     if not product:
         return "Product not found", 404
 
+    # product data dictionary for rendering in the html
     product_data = {
         'title': product[0],
         'description': product[1],
@@ -373,11 +399,12 @@ def order_review(listing_id):
         'listing_id': listing_id
     }
 
+    # get seller's rating from email for display on order review page
     seller_rating = get_seller_rating(product[4])
 
     return render_template('order_review.html', product=product_data, seller_rating=seller_rating, seller_name=product[5])
 
-
+# creates a unique order ID ranging from a 3 to 6 digit number
 def generate_unique_order_id(cursor):
     while True:
         order_id = random.randint(100, 999999)  # 3 to 6-digit number
@@ -387,14 +414,19 @@ def generate_unique_order_id(cursor):
 
 @app.route('/place_order', methods=['POST'])
 def place_order():
+    # user must be a logged-in buyer to buy products
     if 'user' not in session or session['user']['role'] != 'buyer':
         return redirect(url_for('login_form'))
 
+    # get buyer email from the session
     buyer_email = session['user']['email']
+
+    # get listing details from the form
     listing_id = request.form['listing_id']
     quantity = int(request.form['quantity'])
     seller_email = request.form['seller_email']
 
+    # get new payment details from new credit card form if entered
     card = request.form.get('card')
     new_card_number = request.form.get('new_card_number')
     card_type = request.form.get('card_type')
@@ -405,25 +437,29 @@ def place_order():
     connection = sqlite3.connect(db_path)
     cursor = connection.cursor()
 
-
+    # get the product price and current available quantity
     cursor.execute('SELECT Product_Price, Quantity FROM product_listings WHERE Listing_ID = ?', (listing_id,))
     product = cursor.fetchone()
 
+    # if the product does not exist or the quantity requested is greater than the available quantity, this is invalid and returns 400
     if not product or quantity > product[1]:
         connection.close()
         return "Invalid quantity", 400
 
+    # converts price string to float and calculates total price based on quantity
     price_string = str(product[0]).replace('$', '').replace(',', '').strip()
     price = float(price_string)
     total_payment = round(price * quantity, 2)
     new_quantity = product[1] - quantity
 
-    if new_card_number:
+    # if a new credit card number was provided, insert all relevant details into the credit_cards table
+    if new_card_number and card_type and expire_month and expire_year and security_code:
         cursor.execute('''
             INSERT INTO Credit_Cards (credit_card_num, card_type, expire_month, expire_year, security_code, Owner_email)
             VALUES (?, ?, ?, ?, ?, ?)
         ''', (new_card_number, card_type, expire_month, expire_year, security_code, buyer_email))
 
+    # generate unique order id and time stamp for the order
     order_id = generate_unique_order_id(cursor)
     now = datetime.datetime.now()
     date_str = f"{now.year}/{now.month}/{now.day}"
@@ -451,6 +487,7 @@ def place_order():
 
     return redirect(url_for('order_confirmation', order_id=order_id))
 
+# page for order confirmation after the user places an order
 @app.route('/order_confirmation/<int:order_id>')
 def order_confirmation(order_id):
     if 'user' not in session or session['user']['role'] != 'buyer':
@@ -459,6 +496,7 @@ def order_confirmation(order_id):
     connection = sqlite3.connect(db_path)
     cursor = connection.cursor()
 
+    # product + seller info to be displayed on the page
     cursor.execute('''
         SELECT p.Product_Title, o.Quantity, o.Payment, o.Seller_Email
         FROM orders o
@@ -468,12 +506,15 @@ def order_confirmation(order_id):
     order = cursor.fetchone()
     connection.close()
 
+    # if no order found, return a 404
     if not order:
         return "Order not found", 404
 
+    # product dictionary containing the title
     product = {
         'title': order[0]
     }
+    # from query results, get all relevant details for the order
     quantity = order[1]
     total_payment = order[2]
     seller_email = order[3]
@@ -483,15 +524,18 @@ def order_confirmation(order_id):
 
 @app.route('/submit_review/<int:order_id>', methods=['POST'])
 def submit_review(order_id):
+    # user should be a logged-in buyer
     if 'user' not in session or session['user']['role'] != 'buyer':
         return redirect(url_for('login_form'))
 
+    # retrieve the rating /5 and description from the form
     rate = int(request.form['rate'])
     review_desc = request.form['review_desc']
 
     connection = sqlite3.connect(db_path)
     cursor = connection.cursor()
 
+    # insert the relevant details into the reviews table with the given order ID
     cursor.execute('''
         INSERT INTO reviews (Order_ID, Rate, Review_Desc)
         VALUES (?, ?, ?)
@@ -531,7 +575,6 @@ def login():
     if check_password_hash(hashed_password, password):
         role = get_user_role(email)
         business_name = get_user_business_name(email, role)
-        print(email, role, business_name)
         session['user'] = {
             'email': email,
             'role': role,
@@ -722,61 +765,62 @@ def profile_update():
 
     return redirect(url_for('profile', success='Profile updated successfully'))
 
-#for requesting email change
+#requesting email change
 @app.route('/email/change', methods=['POST'])
 def email_change_request():
-    #make sure user is logged in
+    #make sure user is loged in
     if 'user' not in session:
         return redirect(url_for('mainpage'))
 
+    #get form data
     user_email = session['user']['email']
     new_email = request.form['new_email']
-    reason = "ChangeID"
+    reason = 'Email change requested'
 
-    #connect to database
+    #Connect
     connection = sqlite3.connect(db_path)
     cursor = connection.cursor()
 
-    #Create a unique ID for the ECR (Email change request)
-    import time
-    import random
-    request_id = f"ECR{int(time.time())}{random.randint(1000, 9999)}"
+    #create unique request
+    request_id = f"{int(time.time())}{random.randint(1000, 9999)}"
 
-    #insert into requests table
+    #insert into request
     cursor.execute('''
         INSERT INTO requests 
         (request_id, sender_email, helpdesk_staff_email, request_type, request_desc, request_status) 
         VALUES (?, ?, ?, ?, ?, ?)
-    ''', (request_id, user_email, None, "EMAIL_CHANGE", f"New email: {new_email}\nReason: {reason}", "PENDING"))
+    ''', (request_id, user_email, "helpdeskteam@nittybiz.com", "ChangeID", f"New email: {new_email}\nReason: {reason}", "0"))
 
+    #close
     connection.commit()
     connection.close()
 
+    #go back to profile
     return redirect(url_for('profile', success='Email change request submitted and pending approval'))
 
 
-#Helpdesk dashboard accessible by helpdesk staff
+# Updated helpdesk_dashboard function to use numeric status values
 @app.route('/helpdesk')
 def helpdesk_dashboard():
-    #Make sure user in session is helpdesk
+    #make sure user in session is helpdesk
     if 'user' not in session or session['user']['role'] != 'helpdesk':
         return redirect(url_for('mainpage'))
 
-    #Access unassigned requests by name
+    #access requests
     connection = sqlite3.connect(db_path)
     connection.row_factory = sqlite3.Row
     cursor = connection.cursor()
 
-    #Gather unassigned requests
+    #get unassigned requests
     cursor.execute('''
         SELECT * FROM requests
-        WHERE (helpdesk_staff_email IS NULL OR helpdesk_staff_email = 'helpdeskteam@nittybiz.com')
-        AND request_status != 'COMPLETED'
+        WHERE helpdesk_staff_email = 'helpdeskteam@nittybiz.com'
+        AND request_status = '0'
         ORDER BY request_id
     ''')
     unassigned_requests = cursor.fetchall()
 
-    #Get requests assigned to the current user
+    #get requests assigned to current user
     cursor.execute('''
         SELECT * FROM requests
         WHERE helpdesk_staff_email = ?
@@ -784,7 +828,7 @@ def helpdesk_dashboard():
     ''', (session['user']['email'],))
     assigned_requests = cursor.fetchall()
 
-    #Get parent categories for drop down
+    #get parent categories if adding new category
     cursor.execute('''
         SELECT DISTINCT parent_category FROM categories
         WHERE parent_category IS NOT NULL
@@ -794,44 +838,46 @@ def helpdesk_dashboard():
 
     connection.close()
 
+    return render_template('helpdesk.html',
+                          user=session['user'],
+                          unassigned_requests=unassigned_requests,
+                          assigned_requests=assigned_requests,
+                          parent_categories=parent_categories)
 
-    return render_template('helpdesk.html',user=session['user'],unassigned_requests=unassigned_requests,assigned_requests=assigned_requests,parent_categories=parent_categories)
-
-
-
+#claim requests
 @app.route('/helpdesk/claim', methods=['POST'])
 def claim_request():
     #make sure user in session
     if 'user' not in session or session['user']['role'] != 'helpdesk':
         return redirect(url_for('mainpage'))
 
-    #Get request id
+    #get request id
     request_id = request.form['request_id']
 
-    #Connect
+    #connect to db
     connection = sqlite3.connect(db_path)
     cursor = connection.cursor()
 
-    #Update requests to be claimed by helpdesk
+    #update request when claimed
     cursor.execute('''
-            UPDATE requests
-            SET helpdesk_staff_email = ?
-            WHERE request_id = ?
-            AND request_status = '0'
-        ''', (session['user']['email'], request_id))
+        UPDATE requests
+        SET helpdesk_staff_email = ?
+        WHERE request_id = ?
+        AND helpdesk_staff_email = 'helpdeskteam@nittybiz.com'
+        AND request_status = '0'
+    ''', (session['user']['email'], request_id))
 
     #close
     connection.commit()
     connection.close()
 
     #redirect
-    return redirect(url_for('helpdesk', success=f'Request {request_id} has been assigned to you.'))
+    return redirect(url_for('helpdesk_dashboard', success=f'Request {request_id} has been assigned to you.'))
 
-
-
+#for completed actions
 @app.route('/helpdesk/complete', methods=['POST'])
 def complete_request():
-    #make sure in session
+    #make sure user in session
     if 'user' not in session or session['user']['role'] != 'helpdesk':
         return redirect(url_for('mainpage'))
 
@@ -842,27 +888,27 @@ def complete_request():
     connection = sqlite3.connect(db_path)
     cursor = connection.cursor()
 
-    #Mark as completed
+    #mark as completed
     cursor.execute('''
         UPDATE requests
         SET request_status = '1'
         WHERE request_id = ? AND helpdesk_staff_email = ?
     ''', (request_id, session['user']['email']))
 
-    #Close
+    #commit and close
     connection.commit()
     connection.close()
 
-    return redirect(url_for('helpdesk', success=f'Request {request_id} has been marked as completed.'))
+    return redirect(url_for('helpdesk_dashboard', success=f'Request {request_id} has been marked as completed.'))
 
-
+#Adding category
 @app.route('/helpdesk/add_category', methods=['POST'])
 def add_category():
-    #make sure in sessioon
+    #make sure in session
     if 'user' not in session or session['user']['role'] != 'helpdesk':
         return redirect(url_for('mainpage'))
 
-    #get id, category, and figure out if is parent (checkbox) all from form
+    #get id, category name, and if checkbox is there we know it is a parent
     request_id = request.form['request_id']
     category_name = request.form['category_name']
     is_parent = 'is_parent' in request.form
@@ -870,7 +916,7 @@ def add_category():
     connection = sqlite3.connect(db_path)
     cursor = connection.cursor()
 
-    #Category creation
+    #category creation logic
     if is_parent:
         new_parent_name = request.form['new_parent_name']
 
@@ -892,18 +938,18 @@ def add_category():
             VALUES (?, ?)
         ''', (parent_category, category_name))
 
-    #Complete request
+    #complete request
     cursor.execute('''
         UPDATE requests
         SET request_status = '1'
         WHERE request_id = ? AND helpdesk_staff_email = ?
     ''', (request_id, session['user']['email']))
 
-    #commit and close
+    #commit close
     connection.commit()
     connection.close()
 
-    return redirect(url_for('helpdesk', success=f'Category "{category_name}" has been added and request {request_id} has been completed.'))
+    return redirect(url_for('helpdesk_dashboard', success=f'Category "{category_name}" has been added and request {request_id} has been completed.'))
 
 
 @app.route('/products')
@@ -989,16 +1035,94 @@ def product_listings():
     return render_template('product_listings.html', user=session['user'],active_products=active_products,inactive_products=inactive_products,sold_products=sold_products,categories=categories,reviews=reviews,orders=orders,seller_rating=seller_rating,order_products=order_products,order_dates=order_dates)
 
 
-# Add a new product
+#add new product
 @app.route('/products/add', methods=['POST'])
 def add_product():
     #make sure seller
     if 'user' not in session or session['user']['role'] != 'seller':
         return redirect(url_for('mainpage'))
 
-    #Get all from database
+    #Get session user
     user_email = session['user']['email']
 
+    #get from form
+    category = request.form['category']
+    product_title = request.form['product_title']
+    product_name = request.form['product_name']
+    product_description = request.form['product_description']
+
+    quantity = request.form['quantity']
+    raw_price = request.form['product_price']
+    price_val = float(raw_price)
+    product_price = f"${price_val:.2f}"
+    #product_price = '${product_price}'
+
+    #connect
+    connection = sqlite3.connect(db_path)
+    cursor = connection.cursor()
+
+    #Create unique id for listing
+    listing_id = f'{int(time.time())}{random.randint(1000, 9999)}'
+
+    #insert product
+    cursor.execute('''
+        INSERT INTO product_listings
+        (Seller_Email, Listing_ID, Category, Product_Title, Product_Name, Product_Description, Quantity, Product_Price, Status)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, '1')
+    ''', (user_email, listing_id, category, product_title, product_name, product_description, quantity, product_price))
+
+    #close
+    connection.commit()
+    connection.close()
+
+    return redirect(url_for('product_listings'))
+
+
+#requesting new category
+@app.route('/request_category', methods=['POST'])
+def request_category():
+    #make sure is seller
+    if 'user' not in session or session['user']['role'] != 'seller':
+        return redirect(url_for('mainpage'))
+
+    #get form data
+    user_email = session['user']['email']
+    category_name = request.form['category_name']
+    parent_category = request.form.get('parent_category', 'Root')
+    category_reason = request.form['category_reason']
+
+    #connect
+    connection = sqlite3.connect(db_path)
+    cursor = connection.cursor()
+
+    #create unique id
+    request_id = f"{int(time.time())}{random.randint(1000, 9999)}"
+
+    #create description
+    request_desc = f"Parent: {parent_category} Category: {category_name}"
+
+    #insert into requests
+    cursor.execute('''
+        INSERT INTO requests 
+        (request_id, sender_email, helpdesk_staff_email, request_type, request_desc, request_status) 
+        VALUES (?, ?, ?, ?, ?, ?)
+    ''', (request_id, user_email, "helpdeskteam@nittybiz.com", "AddCategory", request_desc, "0"))
+
+    connection.commit()
+    connection.close()
+
+    #new category added
+    return redirect(url_for('product_listings', success='New category request submitted and pending approval'))
+
+@app.route('/products/update', methods=['POST'])
+def update_product():
+    #make sure user is seller
+    if 'user' not in session or session['user']['role'] != 'seller':
+        return redirect(url_for('mainpage'))
+
+    #get from form.
+    user_email = session['user']['email']
+    listing_id = request.form['listing_id']
     category = request.form['category']
     product_title = request.form['product_title']
     product_name = request.form['product_name']
@@ -1011,48 +1135,8 @@ def add_product():
     connection = sqlite3.connect(db_path)
     cursor = connection.cursor()
 
-    #Create unique id for listing
-    import time
-    import random
-    listing_id = f"P{int(time.time())}{random.randint(1000, 9999)}"
-
-    #insert product
+    #update
     cursor.execute('''
-        INSERT INTO product_listings
-        (Seller_Email, Listing_ID, Category, Product_Title, Product_Name, Product_Description, Quantity, Product_Price, Status)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, '1')
-    ''', (user_email, listing_id, category, product_title, product_name, product_description, quantity, product_price))
-
-    connection.commit()
-    connection.close()
-
-    return redirect(url_for('product_listings'))
-
-
-
-@app.route('/products/update', methods=['POST'])
-def update_product():
-
-    if 'user' not in session or session['user']['role'] != 'seller':
-        return redirect(url_for('mainpage'))
-
-    user_email     = session['user']['email']
-    listing_id     = request.form['listing_id']
-    category       = request.form['category']
-    product_title  = request.form['product_title']
-    product_name   = request.form['product_name']
-    product_desc   = request.form['product_description']
-
-    quantity       = int(request.form['quantity'])
-
-    raw_price      = request.form['product_price']
-    price_val      = float(str(raw_price).replace('$','').replace(',',''))
-    product_price  = f"${price_val:.2f}"
-
-    conn = sqlite3.connect(db_path)
-    cur  = conn.cursor()
-
-    cur.execute('''
         UPDATE product_listings
         SET
             Category            = ?,
@@ -1060,27 +1144,30 @@ def update_product():
             Product_Name        = ?,
             Product_Description = ?,
             Quantity            = ?,
-            Product_Price       = ?,
-            Status = CASE
-                        WHEN ? = 0 THEN '2'  
-                        ELSE Status  
-                     END
+            Product_Price       = ?
         WHERE Listing_ID = ?
           AND Seller_Email = ?
     ''', (
         category,
         product_title,
         product_name,
-        product_desc,
+        product_description,
         quantity,
         product_price,
-        quantity,
         listing_id,
         user_email
     ))
+    if quantity == 0:
+        cursor.execute('''
+            UPDATE product_listings
+            SET Status = '2'
+            WHERE Listing_ID = ?
+              AND Seller_Email = ?
+        ''', (listing_id, user_email))
+    #close
+    connection.commit()
+    connection.close()
 
-    conn.commit()
-    conn.close()
     return redirect(url_for('product_listings'))
 
 
@@ -1090,7 +1177,7 @@ def deactivate_product():
     if 'user' not in session or session['user']['role'] != 'seller':
         return redirect(url_for('mainpage'))
 
-    #Get user and listing id
+    #Get user and listing id from form
     user_email = session['user']['email']
     listing_id = request.form['listing_id']
 
@@ -1119,7 +1206,6 @@ def deactivate_product():
 
         return redirect(
             url_for('product_listings'))
-
     else:
         connection.close()
         return redirect(
