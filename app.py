@@ -49,8 +49,7 @@ def dfs_category(start_category):
     connection.close()
     return result
 
-
-
+# if user is a buyer or seller, look up their business name in their respective table
 def get_user_business_name(email, role):
     connection = sqlite3.connect(db_path)
     cursor = connection.cursor()
@@ -76,12 +75,14 @@ def get_user_business_name(email, role):
         return None
 
     connection.close()
-    return None  # fallback if role is unknown
+    return None
 
+# gets the seller's rating from seller email
 def get_seller_rating(seller_email):
     connection = sqlite3.connect(db_path)
     cursor = connection.cursor()
 
+    # calculates and selects the average rating for the given seller by joining reviews and orders
     cursor.execute('''
         SELECT AVG(Rate)
         FROM reviews
@@ -91,6 +92,7 @@ def get_seller_rating(seller_email):
     result = cursor.fetchone()
     connection.close()
 
+    # if there is at least 1 rating, round the average to 2 decimal places
     if result and result[0]:
         return round(result[0], 2)
     else:
@@ -188,12 +190,12 @@ def mainpage(category="All", subcategory="", subsubcategory=""):
     ''', (parent_category,))
     categories = cursor.fetchall()
 
+    # each listing now incorporates all details about the product listing
     enhanced_listings = []
     for listing in listings:
         product_title, product_name, business_name, listing_id, quantity, price, seller_email = listing
         seller_rating = get_seller_rating(seller_email)
-        enhanced_listings.append(
-            (product_title, product_name, business_name, listing_id, quantity, price, seller_email, seller_rating))
+        enhanced_listings.append((product_title, product_name, business_name, listing_id, quantity, price, seller_email, seller_rating))
 
     return render_template('mainpage.html',
                            listings=enhanced_listings,
@@ -206,6 +208,7 @@ def mainpage(category="All", subcategory="", subsubcategory=""):
                            user=user
                            )
 
+# page for the listing details
 @app.route('/listing/<int:listing_id>', methods=['GET'])
 def listing_detail(listing_id):
     connection = sqlite3.connect(db_path)
@@ -222,6 +225,7 @@ def listing_detail(listing_id):
     result = cursor.fetchone()
     connection.close()
 
+    # if a matching product was found, map the query result into structured product dictionary
     if result:
         product = {
             'title': result[0],
@@ -233,18 +237,20 @@ def listing_detail(listing_id):
             'seller_email': result[6],
             'listing_id': listing_id
         }
+        # calculate seller rating which needs to be displayed on the detailed product listing page
         seller_rating = get_seller_rating(result[6])
         return render_template('listing.html', product=product, seller_rating=seller_rating)
 
     else:
         return "Product not found", 404
 
-
+# page for detailed seller information
 @app.route('/seller/<seller_name>')
 def seller_detail(seller_name):
     connection = sqlite3.connect(db_path)
     cursor = connection.cursor()
 
+    # gets seller's business name and email from seller table based on seller's business name
     cursor.execute('''
         SELECT business_name, email
         FROM sellers
@@ -252,11 +258,13 @@ def seller_detail(seller_name):
     ''', (seller_name,))
     seller = cursor.fetchone()
 
+    # if no seller exists with that business name and email, return 404 not found
     if not seller:
         connection.close()
         return "Seller not found", 404
     seller_rating = get_seller_rating(seller[1])
 
+    # retrieve all rating and descriptions for this seller by joining reviews and orders where order IDs match
     cursor.execute('''
         SELECT r.Rate, r.Review_Desc
         FROM reviews r
@@ -273,17 +281,20 @@ def seller_detail(seller_name):
 
     return render_template('seller.html', seller=seller, reviews=reviews, seller_rating=seller_rating)
 
+# page for secure checkout. user is taken here after confirming what they want to buy
 @app.route('/secure_checkout', methods=['POST'])
 def secure_checkout():
     # user should be a logged-in buyer before being able to buy a product
     if 'user' not in session or session['user']['role'] != 'buyer':
         return redirect(url_for('login_form'))
 
+    # from session data, retrieve buyer's email
     user_email = session['user']['email']
 
     connection = sqlite3.connect(db_path)
     cursor = connection.cursor()
 
+    # get the listing ID and quantity from the form submission
     listing_id = request.form.get('listing_id')
     quantity = request.form.get('quantity')
 
@@ -305,13 +316,14 @@ def secure_checkout():
     cards = cursor.fetchall()
     connection.close()
 
+    # if the user enters a new card, collect all new card details if provided via the form
     new_card_number = request.form.get('new_card_number')
     card_type = request.form.get('card_type')
     expire_month = request.form.get('expire_month')
     expire_year = request.form.get('expire_year')
     security_code = request.form.get('security_code')
 
-    # if the user entered a new card, insert into the credit_cards table. also done in place_order
+    # if the user entered all info for a new card, insert into the credit_cards table. also done in place_order
     if new_card_number and card_type and expire_month and expire_year and security_code:
         connection = sqlite3.connect(db_path)
         cursor = connection.cursor()
@@ -324,6 +336,7 @@ def secure_checkout():
         connection.commit()
         connection.close()
 
+    # product data dictionary for rendering in the html
     product_data = {
         'title': product[0],
         'description': product[1],
@@ -334,14 +347,17 @@ def secure_checkout():
         'listing_id': listing_id
     }
 
+    # converts price string to float and calculates total price based on quantity
     price_string = str(product[2]).replace('$', '').replace(',', '').strip()
     price = float(price_string)
     total_price = round(price * int(quantity), 2)
 
+    # get seller's rating from email for display on checkout page
     seller_rating = get_seller_rating(product[4])
 
     return render_template('secure_checkout.html', listing_id=listing_id, product=product_data, cards=cards, quantity=quantity, total_price=total_price, seller_rating=seller_rating, seller_name=product[5])
 
+# page for user to confirm what they want to buy
 @app.route('/order_review/<int:listing_id>', methods=['GET'])
 def order_review(listing_id):
     # user should be a logged-in buyer before being able to buy a product
@@ -365,6 +381,7 @@ def order_review(listing_id):
     if not product:
         return "Product not found", 404
 
+    # product data dictionary for rendering in the html
     product_data = {
         'title': product[0],
         'description': product[1],
@@ -375,11 +392,12 @@ def order_review(listing_id):
         'listing_id': listing_id
     }
 
+    # get seller's rating from email for display on order review page
     seller_rating = get_seller_rating(product[4])
 
     return render_template('order_review.html', product=product_data, seller_rating=seller_rating, seller_name=product[5])
 
-
+# creates a unique order ID ranging from a 3 to 6 digit number
 def generate_unique_order_id(cursor):
     while True:
         order_id = random.randint(100, 999999)  # 3 to 6-digit number
@@ -389,14 +407,19 @@ def generate_unique_order_id(cursor):
 
 @app.route('/place_order', methods=['POST'])
 def place_order():
+    # user must be a logged-in buyer to buy products
     if 'user' not in session or session['user']['role'] != 'buyer':
         return redirect(url_for('login_form'))
 
+    # get buyer email from the session
     buyer_email = session['user']['email']
+
+    # get listing details from the form
     listing_id = request.form['listing_id']
     quantity = int(request.form['quantity'])
     seller_email = request.form['seller_email']
 
+    # get new payment details from new credit card form if entered
     card = request.form.get('card')
     new_card_number = request.form.get('new_card_number')
     card_type = request.form.get('card_type')
@@ -407,25 +430,29 @@ def place_order():
     connection = sqlite3.connect(db_path)
     cursor = connection.cursor()
 
-
+    # get the product price and current available quantity
     cursor.execute('SELECT Product_Price, Quantity FROM product_listings WHERE Listing_ID = ?', (listing_id,))
     product = cursor.fetchone()
 
+    # if the product does not exist or the quantity requested is greater than the available quantity, this is invalid and returns 400
     if not product or quantity > product[1]:
         connection.close()
         return "Invalid quantity", 400
 
+    # converts price string to float and calculates total price based on quantity
     price_string = str(product[0]).replace('$', '').replace(',', '').strip()
     price = float(price_string)
     total_payment = round(price * quantity, 2)
     new_quantity = product[1] - quantity
 
-    if new_card_number:
+    # if a new credit card number was provided, insert all relevant details into the credit_cards table
+    if new_card_number and card_type and expire_month and expire_year and security_code:
         cursor.execute('''
             INSERT INTO Credit_Cards (credit_card_num, card_type, expire_month, expire_year, security_code, Owner_email)
             VALUES (?, ?, ?, ?, ?, ?)
         ''', (new_card_number, card_type, expire_month, expire_year, security_code, buyer_email))
 
+    # generate unique order id and time stamp for the order
     order_id = generate_unique_order_id(cursor)
     now = datetime.datetime.now()
     date_str = f"{now.year}/{now.month}/{now.day}"
@@ -453,6 +480,7 @@ def place_order():
 
     return redirect(url_for('order_confirmation', order_id=order_id))
 
+# page for order confirmation after the user places an order
 @app.route('/order_confirmation/<int:order_id>')
 def order_confirmation(order_id):
     if 'user' not in session or session['user']['role'] != 'buyer':
@@ -461,6 +489,7 @@ def order_confirmation(order_id):
     connection = sqlite3.connect(db_path)
     cursor = connection.cursor()
 
+    # product + seller info to be displayed on the page
     cursor.execute('''
         SELECT p.Product_Title, o.Quantity, o.Payment, o.Seller_Email
         FROM orders o
@@ -470,12 +499,15 @@ def order_confirmation(order_id):
     order = cursor.fetchone()
     connection.close()
 
+    # if no order found, return a 404
     if not order:
         return "Order not found", 404
 
+    # product dictionary containing the title
     product = {
         'title': order[0]
     }
+    # from query results, get all relevant details for the order
     quantity = order[1]
     total_payment = order[2]
     seller_email = order[3]
@@ -485,15 +517,18 @@ def order_confirmation(order_id):
 
 @app.route('/submit_review/<int:order_id>', methods=['POST'])
 def submit_review(order_id):
+    # user should be a logged-in buyer
     if 'user' not in session or session['user']['role'] != 'buyer':
         return redirect(url_for('login_form'))
 
+    # retrieve the rating /5 and description from the form
     rate = int(request.form['rate'])
     review_desc = request.form['review_desc']
 
     connection = sqlite3.connect(db_path)
     cursor = connection.cursor()
 
+    # insert the relevant details into the reviews table with the given order ID
     cursor.execute('''
         INSERT INTO reviews (Order_ID, Rate, Review_Desc)
         VALUES (?, ?, ?)

@@ -14,6 +14,7 @@
             <p><strong>Quantity Ordered:</strong> {{ quantity }}</p>
             <p><strong>Total Payment:</strong> ${{ "%.2f"|format(total_payment) }}</p>
 
+            <!-- user can leave a review by selecting 1-5 and writing review in the description textarea-->
             <h4>Leave a Review</h4>
             <form action="{{ url_for('submit_review', order_id=order_id) }}" method="POST">
                 <div class="form-group">

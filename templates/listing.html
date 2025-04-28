@@ -7,7 +7,7 @@
 </head>
 <body class="bg-light">
 
-    <!-- Top utility row (login / register) -->
+    <!-- Top utility row (login / register). shows profile/logout if logged in, login form and register form if no user session exists -->
     <div class="top‑utility bg-white border-bottom">
         <div class="container d-flex justify-content-end py-1">
            {% if session.user %}
@@ -36,6 +36,7 @@
         </div>
     </nav>
 
+<!-- content container for product details -->
     <div class="container mt-5">
         <div class="card">
             <div class="card-body">
