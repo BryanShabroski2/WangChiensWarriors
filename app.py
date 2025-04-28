@@ -1032,41 +1032,55 @@ def add_product():
 
 @app.route('/products/update', methods=['POST'])
 def update_product():
-    #make sure user is seller
+
     if 'user' not in session or session['user']['role'] != 'seller':
         return redirect(url_for('mainpage'))
 
-    #retreive from db
-    user_email = session['user']['email']
-    listing_id = request.form['listing_id']
-    category = request.form['category']
-    product_title = request.form['product_title']
-    product_name = request.form['product_name']
-    product_description = request.form['product_description']
+    user_email     = session['user']['email']
+    listing_id     = request.form['listing_id']
+    category       = request.form['category']
+    product_title  = request.form['product_title']
+    product_name   = request.form['product_name']
+    product_desc   = request.form['product_description']
 
-    quantity = request.form['quantity']
-    raw_price = request.form['product_price']
-    price_val = float(raw_price)
-    product_price = f"${price_val:.2f}"
-    #connect
-    connection = sqlite3.connect(db_path)
-    cursor = connection.cursor()
+    quantity       = int(request.form['quantity'])
 
-    #update
-    cursor.execute('''
+    raw_price      = request.form['product_price']
+    price_val      = float(str(raw_price).replace('$','').replace(',',''))
+    product_price  = f"${price_val:.2f}"
+
+    conn = sqlite3.connect(db_path)
+    cur  = conn.cursor()
+
+    cur.execute('''
         UPDATE product_listings
-        SET Category = ?, Product_Title = ?, Product_Name = ?, Product_Description = ?, Quantity = ?, Product_Price = ?,
-            Status = CASE 
-        WHEN ? = 0 THEN '2'
-        ELSE Status
-        END
-        WHERE Listing_ID = ? AND Seller_Email = ?
-    ''', (category, product_title, product_name, product_description, quantity, product_price, quantity, listing_id,user_email))
+        SET
+            Category            = ?,
+            Product_Title       = ?,
+            Product_Name        = ?,
+            Product_Description = ?,
+            Quantity            = ?,
+            Product_Price       = ?,
+            Status = CASE
+                        WHEN ? = 0 THEN '2'  
+                        ELSE Status  
+                     END
+        WHERE Listing_ID = ?
+          AND Seller_Email = ?
+    ''', (
+        category,
+        product_title,
+        product_name,
+        product_desc,
+        quantity,
+        product_price,
+        quantity,
+        listing_id,
+        user_email
+    ))
 
-    #close
-    connection.commit()
-    connection.close()
-
+    conn.commit()
+    conn.close()
     return redirect(url_for('product_listings'))
 
 
