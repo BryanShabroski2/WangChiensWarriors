@@ -105,15 +105,18 @@ def get_seller_rating(seller_email):
 def mainpage(category="All", subcategory="", subsubcategory=""):
     user = session.get('user')
 
+    # Gets the requested page from the request args
     page = request.args.get('page', 1, type=int)
+
+    # The number of listings per page
     PAGE_SIZE = 60
+
 
     connection = sqlite3.connect(db_path)
     cursor = connection.cursor()
 
     # To form queries, we create base SQL queries and append onto them depending on
     # the search filters and things like category and subcategory
-
     count_query = '''
         SELECT count(*)
         FROM product_listings p
@@ -136,6 +139,9 @@ def mainpage(category="All", subcategory="", subsubcategory=""):
           AND p.Category = c.category_name
     '''
 
+    # filters refer the string clauses we add to build the query
+    # params refer to the actual variables we are inserting into the query
+    # where params[i] corresponds to the ith question mark in the query
     filters = []
     params = []
     parent_category = ""
@@ -146,6 +152,9 @@ def mainpage(category="All", subcategory="", subsubcategory=""):
         parent_category = subsubcategory
     elif subcategory:
         all_descendants = dfs_category(subcategory)
+        # Creates a SQL check where the category must be in the list of all descendants
+        # (by doing a DFS traversal of children nodes)
+        # This makes sure selecting a parent category displays all products
         filters.append('p.Category IN (' + ','.join(['?'] * len(all_descendants)) + ')')
         params.extend(all_descendants)
         parent_category = subcategory
@@ -158,15 +167,15 @@ def mainpage(category="All", subcategory="", subsubcategory=""):
         parent_category = "Root"
 
     if filters:
+        # join our filters with ANDs
         count_query += ' AND ' + ' AND '.join(filters)
         data_query += ' AND ' + ' AND '.join(filters)
 
-    print("FINAL COUNT QUERY:\n" + count_query)
-    print("COUNT PARAMS: " + str(params))
     cursor.execute(count_query, tuple(params))
     total_listings = cursor.fetchone()[0]
     total_pages = (total_listings + PAGE_SIZE - 1) // PAGE_SIZE
 
+    # Make sure pages don't go out of bounds
     if page > total_pages:
         page = total_pages
     elif page < 1:
@@ -177,8 +186,6 @@ def mainpage(category="All", subcategory="", subsubcategory=""):
     data_query += ' ORDER BY p.Listing_ID LIMIT ? OFFSET ?'
     data_params = params + [PAGE_SIZE, offset]
 
-    print("FINAL DATA QUERY:\n" + data_query)
-    print("DATA PARAMS: " + str(data_params))
     cursor.execute(data_query, tuple(data_params))
     listings = cursor.fetchall()
 
@@ -568,7 +575,6 @@ def login():
     if check_password_hash(hashed_password, password):
         role = get_user_role(email)
         business_name = get_user_business_name(email, role)
-        print(email, role, business_name)
         session['user'] = {
             'email': email,
             'role': role,
@@ -1047,7 +1053,6 @@ def add_product():
     product_price = request.form['product_price']
     quantity = request.form['quantity']
 
-    #TODO: FIX
     #product_price = '${product_price}'
 
     #connect
