@@ -754,12 +754,6 @@ def email_change_request():
 
     return redirect(url_for('profile', success='Email change request submitted and pending approval'))
 
-@app.route('/search')
-def search():
-    # Temporary placeholder – this can be replaced later
-    query = request.args.get('q', '')
-    return f"Search not implemented yet. You searched for: {query}"
-
 
 #Helpdesk dashboard accessible by helpdesk staff
 @app.route('/helpdesk')
